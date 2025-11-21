@@ -1,0 +1,14 @@
+menu "LVGL TFT Driver Configuration"
+	config USE_PSRAM_BUFFER
+        bool "Use PSRAM Frame buffer"
+        default y
+        help
+            Place frame buffer in PSRAM as opposed to smaller buffers in internal RAM.
+
+    config AVOID_TEAR_EFFECT_WITH_SEM
+        bool "Avoid tearing effect"
+        default n
+        help
+            Enable semaphores to avoid the tearing effect.
+    
+endmenu

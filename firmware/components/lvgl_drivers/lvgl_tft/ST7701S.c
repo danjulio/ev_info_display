@@ -1,0 +1,591 @@
+#include "ST7701S.h"
+
+#define SPI_WriteComm(cmd) ST7701S_WriteCommand(St7701S_handle, cmd)
+#define SPI_WriteData(data) ST7701S_WriteData(St7701S_handle, data)
+#define Delay(ms) vTaskDelay(ms / portTICK_PERIOD_MS)
+
+static const char *TAG = "LCD";
+
+void ioexpander_init(){};
+void ioexpander_write_cmd(){};
+void ioexpander_write_data(){};
+
+/**
+ * @brief Example Create an ST7701S object
+ * @param SDA SDA pin
+ * @param SCL SCL pin
+ * @param CS  CS  pin
+ * @param channel_select SPI channel selection
+ * @param method_select  SPI_METHOD,IOEXPANDER_METHOD
+ * @note
+*/
+ST7701S_handle ST7701S_newObject(int SDA, int SCL, int CS, char channel_select, char method_select)
+{
+    // if you use `malloc()`, please set 0 in the area to be assigned.
+    ST7701S_handle st7701s_handle = heap_caps_calloc(1, sizeof(ST7701S), MALLOC_CAP_DEFAULT);
+    st7701s_handle->method_select = method_select;
+    
+    if (method_select == SPI_METHOD){
+        st7701s_handle->spi_io_config_t.miso_io_num = -1;
+        st7701s_handle->spi_io_config_t.mosi_io_num = SDA;
+        st7701s_handle->spi_io_config_t.sclk_io_num = SCL;
+        st7701s_handle->spi_io_config_t.quadwp_io_num = -1;
+        st7701s_handle->spi_io_config_t.quadhd_io_num = -1;
+
+        st7701s_handle->spi_io_config_t.max_transfer_sz = SOC_SPI_MAXIMUM_BUFFER_SIZE;
+
+        ESP_ERROR_CHECK(spi_bus_initialize(channel_select, &(st7701s_handle->spi_io_config_t), SPI_DMA_CH_AUTO));
+
+        st7701s_handle->st7701s_protocol_config_t.command_bits = 1;
+        st7701s_handle->st7701s_protocol_config_t.address_bits = 8;
+        st7701s_handle->st7701s_protocol_config_t.clock_speed_hz = 4000000;
+        st7701s_handle->st7701s_protocol_config_t.mode = 0;
+        st7701s_handle->st7701s_protocol_config_t.spics_io_num = CS;
+        st7701s_handle->st7701s_protocol_config_t.queue_size = 1;
+
+        ESP_ERROR_CHECK(spi_bus_add_device(channel_select, &(st7701s_handle->st7701s_protocol_config_t),
+                                        &(st7701s_handle->spi_device)));
+        
+        return st7701s_handle;
+    }else{
+        ioexpander_init();
+    }
+    return NULL;
+}
+
+/**
+ * @brief Screen initialization
+ * @param St7701S_handle 
+ * @param type 
+ * @note
+*/
+void ST7701S_screen_init(ST7701S_handle St7701S_handle, unsigned char type)
+{
+    if (type == 1){
+    // 2.8inch
+    SPI_WriteComm(0xFF);     
+    SPI_WriteData(0x77);   
+    SPI_WriteData(0x01);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x13);   
+
+    SPI_WriteComm(0xEF);     
+    SPI_WriteData(0x08);   
+
+    SPI_WriteComm(0xFF);     
+    SPI_WriteData(0x77);   
+    SPI_WriteData(0x01);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x10);   
+
+    SPI_WriteComm(0xC0);     
+    SPI_WriteData(0x3B);   
+    SPI_WriteData(0x00);   
+
+    SPI_WriteComm(0xC1);     
+    SPI_WriteData(0x10);   
+    SPI_WriteData(0x0C);   
+
+    SPI_WriteComm(0xC2);     
+    SPI_WriteData(0x07);   
+    SPI_WriteData(0x0A);   
+
+    SPI_WriteComm(0xC7);     
+    SPI_WriteData(0x00);           
+
+    SPI_WriteComm(0xCC);     
+    SPI_WriteData(0x10);   
+
+    SPI_WriteComm(0xCD);     
+    SPI_WriteData(0x08); 
+
+    SPI_WriteComm(0xB0);     
+    SPI_WriteData(0x05);   
+    SPI_WriteData(0x12);   
+    SPI_WriteData(0x98);   
+    SPI_WriteData(0x0E);   
+    SPI_WriteData(0x0F);   
+    SPI_WriteData(0x07);   
+    SPI_WriteData(0x07);   
+    SPI_WriteData(0x09);   
+    SPI_WriteData(0x09);   
+    SPI_WriteData(0x23);   
+    SPI_WriteData(0x05);   
+    SPI_WriteData(0x52);   
+    SPI_WriteData(0x0F);   
+    SPI_WriteData(0x67);   
+    SPI_WriteData(0x2C);   
+    SPI_WriteData(0x11);   
+
+    SPI_WriteComm(0xB1);     
+    SPI_WriteData(0x0B);   
+    SPI_WriteData(0x11);   
+    SPI_WriteData(0x97);   
+    SPI_WriteData(0x0C);   
+    SPI_WriteData(0x12);   
+    SPI_WriteData(0x06);   
+    SPI_WriteData(0x06);   
+    SPI_WriteData(0x08);   
+    SPI_WriteData(0x08);   
+    SPI_WriteData(0x22);   
+    SPI_WriteData(0x03);   
+    SPI_WriteData(0x51);   
+    SPI_WriteData(0x11);   
+    SPI_WriteData(0x66);   
+    SPI_WriteData(0x2B);   
+    SPI_WriteData(0x0F);   
+
+    SPI_WriteComm(0xFF);     
+    SPI_WriteData(0x77);   
+    SPI_WriteData(0x01);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x11);   
+
+    SPI_WriteComm(0xB0);     
+    SPI_WriteData(0x5D);   
+
+    SPI_WriteComm(0xB1);     
+    SPI_WriteData(0x3E);   
+
+    SPI_WriteComm(0xB2);     
+    SPI_WriteData(0x81);   
+
+    SPI_WriteComm(0xB3);     
+    SPI_WriteData(0x80);   
+
+    SPI_WriteComm(0xB5);     
+    SPI_WriteData(0x4E);   
+
+    SPI_WriteComm(0xB7);     
+    SPI_WriteData(0x85);   
+
+    SPI_WriteComm(0xB8);     
+    SPI_WriteData(0x20);   
+
+    SPI_WriteComm(0xC1);     
+    SPI_WriteData(0x78);   
+
+    SPI_WriteComm(0xC2);     
+    SPI_WriteData(0x78);   
+
+    SPI_WriteComm(0xD0);     
+    SPI_WriteData(0x88);   
+
+    SPI_WriteComm(0xE0);     
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x02);   
+
+    SPI_WriteComm(0xE1);     
+    SPI_WriteData(0x06);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0x08);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0x05);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0x07);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x33);   
+    SPI_WriteData(0x33);   
+
+    SPI_WriteComm(0xE2);     
+    SPI_WriteData(0x11);   
+    SPI_WriteData(0x11);   
+    SPI_WriteData(0x33);   
+    SPI_WriteData(0x33);   
+    SPI_WriteData(0xF4);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0xF4);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+
+    SPI_WriteComm(0xE3);     
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x11);   
+    SPI_WriteData(0x11);   
+
+    SPI_WriteComm(0xE4);     
+    SPI_WriteData(0x44);   
+    SPI_WriteData(0x44);   
+
+    SPI_WriteComm(0xE5);     
+    SPI_WriteData(0x0D);   
+    SPI_WriteData(0xF5);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0xF0);   
+    SPI_WriteData(0x0F);   
+    SPI_WriteData(0xF7);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0xF0);   
+    SPI_WriteData(0x09);   
+    SPI_WriteData(0xF1);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0xF0);   
+    SPI_WriteData(0x0B);   
+    SPI_WriteData(0xF3);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0xF0);   
+
+    SPI_WriteComm(0xE6);     
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x11);   
+    SPI_WriteData(0x11);   
+
+    SPI_WriteComm(0xE7);     
+    SPI_WriteData(0x44);   
+    SPI_WriteData(0x44);   
+
+    SPI_WriteComm(0xE8);     
+    SPI_WriteData(0x0C);   
+    SPI_WriteData(0xF4);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0xF0);   
+    SPI_WriteData(0x0E);   
+    SPI_WriteData(0xF6);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0xF0);   
+    SPI_WriteData(0x08);   
+    SPI_WriteData(0xF0);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0xF0);   
+    SPI_WriteData(0x0A);   
+    SPI_WriteData(0xF2);   
+    SPI_WriteData(0x30);   
+    SPI_WriteData(0xF0);   
+
+    SPI_WriteComm(0xE9);     
+    SPI_WriteData(0x36);   
+    SPI_WriteData(0x01);   
+
+    SPI_WriteComm(0xEB);     
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x01);   
+    SPI_WriteData(0xE4);   
+    SPI_WriteData(0xE4);   
+    SPI_WriteData(0x44);   
+    SPI_WriteData(0x88);   
+    SPI_WriteData(0x40);   
+
+    SPI_WriteComm(0xED);     
+    SPI_WriteData(0xFF);   
+    SPI_WriteData(0x10);   
+    SPI_WriteData(0xAF);   
+    SPI_WriteData(0x76);   
+    SPI_WriteData(0x54);   
+    SPI_WriteData(0x2B);   
+    SPI_WriteData(0xCF);   
+    SPI_WriteData(0xFF);   
+    SPI_WriteData(0xFF);   
+    SPI_WriteData(0xFC);   
+    SPI_WriteData(0xB2);   
+    SPI_WriteData(0x45);   
+    SPI_WriteData(0x67);   
+    SPI_WriteData(0xFA);   
+    SPI_WriteData(0x01);   
+    SPI_WriteData(0xFF);   
+
+    SPI_WriteComm(0xEF);     
+    SPI_WriteData(0x08);   
+    SPI_WriteData(0x08);   
+    SPI_WriteData(0x08);   
+    SPI_WriteData(0x45);   
+    SPI_WriteData(0x3F);   
+    SPI_WriteData(0x54);   
+
+    SPI_WriteComm(0xFF);     
+    SPI_WriteData(0x77);   
+    SPI_WriteData(0x01);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+    SPI_WriteData(0x00);   
+
+    SPI_WriteComm(0x11);     
+    Delay(120);                //ms
+
+    SPI_WriteComm(0x3A);    
+    SPI_WriteData(0x66);       // 0x66  /  0x77
+
+    SPI_WriteComm(0x36);     
+    SPI_WriteData(0x00);   
+
+    SPI_WriteComm(0x35);     
+    SPI_WriteData(0x00);   
+
+    SPI_WriteComm(0x29);
+    }
+}
+
+/**
+ * @brief Example Delete the ST7701S object
+ * @param St7701S_handle 
+*/
+void ST7701S_delObject(ST7701S_handle St7701S_handle)
+{
+    if (St7701S_handle != NULL) {
+    	free(St7701S_handle);
+    }
+}
+
+/**
+ * @brief SPI write instruction
+ * @param St7701S_handle 
+ * @param cmd instruction
+*/
+void ST7701S_WriteCommand(ST7701S_handle St7701S_handle, uint8_t cmd)
+{
+    if(St7701S_handle->method_select){
+        spi_transaction_t spi_tran = {
+            .rxlength = 0,
+            .length = 0,
+            .cmd = 0,
+            .addr = cmd,
+        };
+        spi_device_transmit(St7701S_handle->spi_device, &spi_tran);
+    }else{
+        ioexpander_write_cmd();
+    }
+}
+
+/**
+ * @brief SPI write data
+ * @param St7701S_handle
+ * @param data 
+*/
+void ST7701S_WriteData(ST7701S_handle St7701S_handle, uint8_t data)
+{
+    if(St7701S_handle->method_select){
+        spi_transaction_t spi_tran = {
+            .rxlength = 0,
+            .length = 0,
+            .cmd = 1,
+            .addr = data,
+        };
+        spi_device_transmit(St7701S_handle->spi_device, &spi_tran);
+    }else{
+        ioexpander_write_data();
+    }
+}
+
+
+esp_err_t ST7701S_reset(void)
+{
+	esp_err_t ret;
+	
+    ret = Set_EXIO(TCA9554_EXIO1,false);
+    vTaskDelay(pdMS_TO_TICKS(10));
+    ret |= Set_EXIO(TCA9554_EXIO1,true);
+    vTaskDelay(pdMS_TO_TICKS(10));
+    
+    return ret;
+}
+
+esp_err_t ST7701S_CS_EN(void)
+{
+	esp_err_t ret;
+	
+    ret = Set_EXIO(TCA9554_EXIO3,false);
+    vTaskDelay(pdMS_TO_TICKS(10));
+    
+    return ret;
+}
+esp_err_t ST7701S_CS_Dis(void)
+{
+	esp_err_t ret;
+	
+    ret = Set_EXIO(TCA9554_EXIO3,true);
+    vTaskDelay(pdMS_TO_TICKS(10));
+    
+    return ret;
+}
+
+#if CONFIG_AVOID_TEAR_EFFECT_WITH_SEM
+SemaphoreHandle_t sem_vsync_end;
+SemaphoreHandle_t sem_gui_ready;
+#endif
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static bool IRAM_ATTR on_vsync_event(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *event_data, void *user_data)
+{
+    BaseType_t high_task_awoken = pdFALSE;
+#if CONFIG_AVOID_TEAR_EFFECT_WITH_SEM
+    if (xSemaphoreTakeFromISR(sem_gui_ready, &high_task_awoken) == pdTRUE) {
+        xSemaphoreGiveFromISR(sem_vsync_end, &high_task_awoken);
+    }
+#endif
+    return high_task_awoken == pdTRUE;
+}
+
+esp_lcd_panel_handle_t panel_handle = NULL;
+void LCD_Init(lv_disp_drv_t* disp_drv)
+{
+    /********************* LCD *********************/
+    ESP_ERROR_CHECK(ST7701S_reset());
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
+    ESP_LOGI(TAG, "Initialize LCD controller");
+    ST7701S_handle st7701s = ST7701S_newObject(LCD_MOSI, LCD_SCLK, LCD_CS, SPI2_HOST, SPI_METHOD);
+    ESP_ERROR_CHECK(ST7701S_CS_EN());
+    ST7701S_screen_init(st7701s, 1);
+    
+#if CONFIG_AVOID_TEAR_EFFECT_WITH_SEM
+    ESP_LOGI(TAG, "Create tear effect semaphores");
+    sem_vsync_end = xSemaphoreCreateBinary();
+    assert(sem_vsync_end);
+    sem_gui_ready = xSemaphoreCreateBinary();
+    assert(sem_gui_ready);
+#endif
+
+    /********************* RGB LCD panel driver *********************/
+    ESP_LOGI(TAG, "Install RGB LCD panel driver");
+    esp_lcd_rgb_panel_config_t panel_config = {
+        .data_width = 16, // RGB565 in parallel mode, thus 16bit in width
+        .psram_trans_align = 64,
+        .dma_burst_size = 64,
+        .num_fbs = LCD_NUM_FB,
+        .bounce_buffer_size_px = 10 * LCD_H_RES,
+        .clk_src = LCD_CLK_SRC_DEFAULT,
+        .disp_gpio_num = PIN_NUM_DISP_EN,
+        .pclk_gpio_num = PIN_NUM_PCLK,
+        .vsync_gpio_num = PIN_NUM_VSYNC,
+        .hsync_gpio_num = PIN_NUM_HSYNC,
+        .de_gpio_num = PIN_NUM_DE,
+        .data_gpio_nums = {
+            PIN_NUM_DATA0,
+            PIN_NUM_DATA1,
+            PIN_NUM_DATA2,
+            PIN_NUM_DATA3,
+            PIN_NUM_DATA4,
+            PIN_NUM_DATA5,
+            PIN_NUM_DATA6,
+            PIN_NUM_DATA7,
+            PIN_NUM_DATA8,
+            PIN_NUM_DATA9,
+            PIN_NUM_DATA10,
+            PIN_NUM_DATA11,
+            PIN_NUM_DATA12,
+            PIN_NUM_DATA13,
+            PIN_NUM_DATA14,
+            PIN_NUM_DATA15,
+        },
+        .timings = {
+            .pclk_hz = LCD_PIXEL_CLOCK_HZ,
+            .h_res = LCD_H_RES,
+            .v_res = LCD_V_RES, 
+            .hsync_back_porch = 10,
+            .hsync_front_porch = 50,
+            .hsync_pulse_width = 8,
+            .vsync_back_porch = 18,
+            .vsync_front_porch = 8,
+            .vsync_pulse_width = 2,
+            .flags.pclk_active_neg = false,
+        },
+        .flags.fb_in_psram = true, // allocate frame buffer in PSRAM
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_rgb_panel(&panel_config, &panel_handle));
+
+    ESP_LOGI(TAG, "Register event callbacks");
+    esp_lcd_rgb_panel_event_callbacks_t cbs = {
+        .on_vsync = on_vsync_event,
+    };
+    ESP_ERROR_CHECK(esp_lcd_rgb_panel_register_event_callbacks(panel_handle, &cbs, disp_drv));
+
+    ESP_LOGI(TAG, "Initialize RGB LCD panel");
+    ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
+    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+    ESP_ERROR_CHECK(ST7701S_CS_Dis());
+    Backlight_Init();
+}
+
+
+void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map)
+{
+    esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t) drv->user_data;
+    int offsetx1 = area->x1;
+    int offsetx2 = area->x2;
+    int offsety1 = area->y1;
+    int offsety2 = area->y2;
+#if CONFIG_AVOID_TEAR_EFFECT_WITH_SEM
+    xSemaphoreGive(sem_gui_ready);
+    xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
+#endif
+	
+    // pass the draw buffer to the driver
+    esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, color_map);
+    lv_disp_flush_ready(drv);
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Backlight program
+
+static ledc_channel_config_t ledc_channel;
+static uint8_t backlight_level;
+void Backlight_Init(void)
+{
+    ESP_LOGI(TAG, "Initialize LCD backlight");
+    
+    gpio_config_t bk_gpio_config = {
+        .mode = GPIO_MODE_OUTPUT,
+        .pin_bit_mask = 1ULL << PIN_NUM_BK_LIGHT
+    };
+    ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
+    /*
+    ESP_ERROR_CHECK(gpio_reset_pin(PIN_NUM_BK_LIGHT));
+    ESP_ERROR_CHECK(gpio_set_direction(PIN_NUM_BK_LIGHT, GPIO_MODE_OUTPUT));
+    ESP_ERROR_CHECK(gpio_set_level(PIN_NUM_BK_LIGHT, 1));
+    */
+
+    ledc_timer_config_t ledc_timer = {
+        .duty_resolution = LEDC_TIMER_13_BIT,
+        .freq_hz = 5000,
+        .speed_mode = LEDC_LS_MODE,
+        .timer_num = LEDC_HS_TIMER,
+        .clk_cfg = LEDC_AUTO_CLK
+    };
+    ledc_timer_config(&ledc_timer);
+
+    ledc_channel.channel    = LEDC_HS_CH0_CHANNEL;
+    ledc_channel.duty       = 0;
+    ledc_channel.hpoint     = 0;
+    ledc_channel.gpio_num   = PIN_NUM_BK_LIGHT;
+    ledc_channel.speed_mode = LEDC_LS_MODE;
+    ledc_channel.timer_sel  = LEDC_HS_TIMER;
+    ledc_channel_config(&ledc_channel);
+    ledc_fade_func_install(0);
+    
+    Set_Backlight(100);      //0~100
+}
+
+void Set_Backlight(uint8_t Light)
+{   
+    if (Light > Backlight_MAX) {
+    	backlight_level = Backlight_MAX;
+    } else {
+    	backlight_level = Light;
+    }
+    
+    uint16_t Duty = LEDC_MAX_Duty-(81*(Backlight_MAX-backlight_level));
+    if (backlight_level == 0) {
+        Duty = 0;
+    }
+    ESP_LOGI(TAG, "Set Backlight to %u (%u)", Duty, backlight_level);
+    ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, Duty);
+    ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
+}
+
+uint8_t Get_Backlight()
+{
+	return backlight_level;
+}
+// end Backlight program
