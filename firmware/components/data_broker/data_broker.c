@@ -32,8 +32,9 @@
 //
 // Module variables
 //
+static bool gui_item_fast_average = false;
 static gui_item_value_handler gui_handler_list[DB_MAX_ITEMS];
-static float gui_item_value_list[DB_MAX_ITEMS];
+static float gui_item_value_list[2][DB_MAX_ITEMS];
 static uint32_t gui_item_updated_mask;
 
 static SemaphoreHandle_t update_mutex;
@@ -49,15 +50,21 @@ static int _db_mask_to_index(uint32_t mask);
 //
 // API
 //
-void db_init()
+esp_err_t db_init()
 {
 	for (int i=0; i<DB_MAX_ITEMS; i++) {
 		gui_handler_list[i] = NULL;
-		gui_item_value_list[i] = 0;
+		gui_item_value_list[0][i] = 0;
 	}
 	
 	update_mutex = xSemaphoreCreateMutex();
-	// ??? Delete task if fails?
+	return (update_mutex == NULL) ? ESP_FAIL : ESP_OK;
+}
+
+
+void db_enable_fast_average(bool en)
+{
+	gui_item_fast_average = true;
 }
 
 
@@ -67,7 +74,11 @@ void db_gui_eval()
 	for (int i=0; i<DB_MAX_ITEMS; i++) {
 		if ((gui_item_updated_mask & (1 << i)) != 0) {
 			if (gui_handler_list[i] != NULL) {
-				gui_handler_list[i](gui_item_value_list[i]);
+				if (gui_item_fast_average) {
+					gui_handler_list[i]((gui_item_value_list[0][i] + gui_item_value_list[1][i])/2.0);
+				} else {
+					gui_handler_list[i](gui_item_value_list[0][i]);
+				}
 			}
 		}
 	}
@@ -84,6 +95,8 @@ void db_register_gui_callback(uint32_t mask, gui_item_value_handler fcn)
 	
 	if (n >= 0) {
 		gui_handler_list[n] = fcn;
+		gui_item_updated_mask &= ~(1 << n);
+		gui_item_value_list[0][n] = 0;
 	}
 }
 
@@ -97,7 +110,8 @@ void db_set_data_item_value(uint32_t mask, float val)
 	xSemaphoreTake(update_mutex, portMAX_DELAY);
 	if (n >= 0) {
 		gui_item_updated_mask |= (1 << n);
-		gui_item_value_list[n] = val;
+		gui_item_value_list[1][n] = gui_item_value_list[0][n];
+		gui_item_value_list[0][n] = val;
 	}
 	xSemaphoreGive(update_mutex);
 }

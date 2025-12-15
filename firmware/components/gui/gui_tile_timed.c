@@ -223,7 +223,10 @@ static void _gui_tile_timed_set_active(bool en)
 			_gui_tile_timed_update_speed_meter(0, true);
 			_gui_tile_timed_update_timer_display(0);
 			_gui_tile_timed_update_xmas_tree(XMAS_STATE_OFF);
-		}		
+		}
+		
+		// Never enable averaging for this tile because we want fastest speed update possible
+		db_enable_fast_average(false);	
 		
 		// Initialize the update interval timer for meter animations (this will change
 		// to reflect real system timing)
@@ -373,6 +376,9 @@ static void _gui_tile_timed_update_speed_meter(int32_t val, bool immediate)
 	if (immediate) {
 		_gui_tile_timed_set_speed_meter_cb(speed_arc, val);
 	} else {
+		// Stop any previous animations
+		lv_anim_del(speed_arc, _gui_tile_timed_set_speed_meter_cb);
+		
 		// Start an animation to the new value for the meter indicator
 		anim_time = gui_utility_get_update_period() - 20;   // Just slightly faster than the average update interval
 		lv_anim_init(&speed_animation);

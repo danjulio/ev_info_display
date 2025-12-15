@@ -26,6 +26,8 @@
 #ifndef DATA_BROKER_H
 #define DATA_BROKER_H
 
+#include "esp_system.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 
@@ -67,7 +69,8 @@ typedef void (*gui_item_value_handler)(float val);
 //
 // API
 //
-void db_init();
+esp_err_t db_init();
+void db_enable_fast_average(bool en);
 void db_gui_eval();
 
 // GUI API

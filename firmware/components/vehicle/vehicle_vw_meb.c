@@ -41,10 +41,17 @@
 #define UDS_HV_BATT_VOLT  6
 #define UDS_FRONT_TORQUE  7
 #define UDS_REAR_TORQUE   8
-#define UDS_SPEED         9
+#define UDS_GEAR_POSITION 9
+#define UDS_SPEED         10
 
-#define NUM_UDS_REQ_ITEMS 10
+#define NUM_UDS_REQ_ITEMS 11
 
+// Gear position constants
+#define GEAR_PARK         0x08
+#define GEAR_REVERSE      0x07
+#define GEAR_NEUTRAL      0x06
+#define GEAR_DRIVE_D      0x05
+#define GEAR_DRIVE_B      0x0C
 
 
 //
@@ -119,8 +126,9 @@ static const can_request_t req_hv_batt_current = {0x17fc007b, 0x17fe007b, 8, {0x
 static const can_request_t req_hv_batt_min_t   = {0x17fc007b, 0x17fe007b, 8, {0x03, 0x22, 0x1E, 0x0F, 0x00, 0x00, 0x00, 0x00}};
 static const can_request_t req_hv_batt_max_t   = {0x17fc007b, 0x17fe007b, 8, {0x03, 0x22, 0x1E, 0x0E, 0x00, 0x00, 0x00, 0x00}};
 static const can_request_t req_hv_batt_volt    = {0x17fc007b, 0x17fe007b, 8, {0x03, 0x22, 0x1E, 0x3B, 0x00, 0x00, 0x00, 0x00}};
-static const can_request_t req_front_torque    = {0x17FC0076, 0x17FE0076, 8, {0x03, 0x22, 0x03, 0x35, 0x00, 0x00, 0x00, 0x00}};
-static const can_request_t req_rear_torque     = {0x17FC0076, 0x17FE0076, 8, {0x03, 0x22, 0x03, 0x3B, 0x00, 0x00, 0x00, 0x00}};
+static const can_request_t req_front_torque    = {0x17fc0076, 0x17fe0076, 8, {0x03, 0x22, 0x03, 0x35, 0x00, 0x00, 0x00, 0x00}};
+static const can_request_t req_rear_torque     = {0x17fc0076, 0x17fe0076, 8, {0x03, 0x22, 0x03, 0x3B, 0x00, 0x00, 0x00, 0x00}};
+static const can_request_t req_gear_pos        = {0x17fc0076, 0x17fe0076, 8, {0x03, 0x22, 0x21, 0x0E, 0x00, 0x00, 0x00, 0x00}};
 static const can_request_t req_speed           = {0x18DB33F1, 0x18DAF101, 8, {0x02, 0x01, 0x0D, 0x00, 0x00, 0x00, 0x00, 0x00}};
 
 static const can_request_t* req_full_listP[NUM_UDS_REQ_ITEMS] = {
@@ -133,6 +141,7 @@ static const can_request_t* req_full_listP[NUM_UDS_REQ_ITEMS] = {
 	&req_hv_batt_volt,
 	&req_front_torque,
 	&req_rear_torque,
+	&req_gear_pos,
 	&req_speed
 };
 
@@ -151,6 +160,9 @@ static bool saw_error = false;
 static bool saw_response = false;
 static int req_index = 0;
 static int num_req_entries = 0;
+
+// Partial data values
+static bool in_reverse = false;
 
 
 
@@ -219,6 +231,7 @@ static void _vw_meb_set_req_mask(uint32_t mask)
 	required_req[UDS_HV_BATT_VOLT]  = vm_mask_check(mask, DB_ITEM_HV_BATT_V | DB_ITEM_AUX_KW);
 	required_req[UDS_FRONT_TORQUE]  = vm_mask_check(mask, DB_ITEM_FRONT_TORQUE);
 	required_req[UDS_REAR_TORQUE]   = vm_mask_check(mask, DB_ITEM_REAR_TORQUE);
+	required_req[UDS_GEAR_POSITION] = vm_mask_check(mask, DB_ITEM_FRONT_TORQUE | DB_ITEM_REAR_TORQUE);
 	required_req[UDS_SPEED]         = vm_mask_check(mask, DB_ITEM_SPEED);
 	
 	// Build up our list of requests and reset starting point
@@ -288,7 +301,7 @@ static void _vw_meb_rx_data(uint32_t id, int len, uint8_t* data)
 			
 		case UDS_HV_BATT_MIN_T:
 			if (len == 7) {
-				i16 = ((data[3] << 8) | data[4]) / 64;
+				i16 = ((int16_t) ((data[3] << 8) | data[4])) / 64;
 				f = (float) i16;
 				vm_update_data_item(DB_ITEM_HV_BATT_MIN_T, f);
 			}
@@ -296,7 +309,7 @@ static void _vw_meb_rx_data(uint32_t id, int len, uint8_t* data)
 			
 		case UDS_HV_BATT_MAX_T:
 			if (len == 7) {
-				i16 = ((data[3] << 8) | data[4]) / 64;
+				i16 = ((int16_t) ((data[3] << 8) | data[4])) / 64;
 				f = (float) i16;
 				vm_update_data_item(DB_ITEM_HV_BATT_MAX_T, f);
 			}
@@ -314,6 +327,15 @@ static void _vw_meb_rx_data(uint32_t id, int len, uint8_t* data)
 			if (len == 5) {
 				i16 = (data[3] << 8) | data[4];
 				f = (float) i16;
+				
+				// For MEB the torque value is the actual torque going to the motor
+				// which means going in reverse is the same as applying regen while going forward
+				// so we use knowledge of the shift position to negate the torque for reverse
+				// so it still shows up as a positive number (a request to move the car as opposed
+				// to regenerate energy back into the battery)
+				if (in_reverse) {
+					f = -f;
+				}
 				vm_update_data_item(DB_ITEM_FRONT_TORQUE, f);
 			}
 			break;
@@ -322,7 +344,16 @@ static void _vw_meb_rx_data(uint32_t id, int len, uint8_t* data)
 			if (len == 5) {
 				i16 = (data[3] << 8) | data[4];
 				f = (float) i16;
+				if (in_reverse) {
+					f = -f;
+				}
 				vm_update_data_item(DB_ITEM_REAR_TORQUE, f);
+			}
+			break;
+			
+		case UDS_GEAR_POSITION:
+			if (len == 5) {
+				in_reverse = (data[4] == GEAR_REVERSE);
 			}
 			break;
 			

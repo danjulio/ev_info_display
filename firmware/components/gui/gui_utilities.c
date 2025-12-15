@@ -27,7 +27,7 @@
 //
 // Private constants
 //
-#define NUM_UPDATE_PERIODS 6
+#define NUM_UPDATE_PERIODS          2
 
 // Keypad pop-up related
 //

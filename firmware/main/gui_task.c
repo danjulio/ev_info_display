@@ -21,6 +21,7 @@
  * along with this software.  If not, see <https://www.gnu.org/licenses/>.
  *
  */
+#include "can_manager.h"
 #include "data_broker.h"
 #include "disp_driver.h"
 #include "driver/gpio.h"
@@ -215,6 +216,12 @@ void gui_set_init_tile_index(int32_t n)
 bool gui_is_metric()
 {
 	return (configP->config_flags & PS_MAIN_FLAG_METRIC) == PS_MAIN_FLAG_METRIC;
+}
+
+
+bool gui_has_fast_interface()
+{
+	return (configP->connection_index == CAN_MANAGER_IF_TWAI);
 }
 
 

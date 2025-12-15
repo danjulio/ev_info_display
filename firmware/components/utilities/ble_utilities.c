@@ -82,9 +82,10 @@ static const struct ble_gap_conn_params conn_params = {
 static const uint8_t cccd_notify_enable_cfg[] = {0x01, 0x00};
 
 // Note: Device UUIDs must be lower-case
-#define NUM_KNOWN_BLE_DEVICES  1
+#define NUM_KNOWN_BLE_DEVICES  2
 static const remote_ble_device_desc_t known_ble_devices[NUM_KNOWN_BLE_DEVICES] = {
-	{"LELink OBD-II", "OBDBLE", "ffe0", "ffe1", "ffe1"}
+	{"LELink OBD-II", "OBDBLE", "ffe0", "ffe1", "ffe1"},
+	{"Vgate iCar Pro 4.0", "IOS-Vlink", "18f0", "2af1", "2af0"}
 };
 
 
@@ -147,7 +148,7 @@ static ble_rx_data_fcn rx_data_cb_fcn;
 //
 
 /**
- * Power-on initialization of the WiFi system.  It is enabled based on start-up
+ * Power-on initialization of the Bluetooth system.  It is enabled based on start-up
  * information from persistent storage.  Returns false if any part of the initialization
  * fails.  Assumes the NVS flash subsystem has already been initialized (by PS).
  */

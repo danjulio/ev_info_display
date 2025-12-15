@@ -69,6 +69,7 @@ void gui_get_screen_size(uint16_t* w, uint16_t* h);
 int32_t gui_get_init_tile_index();
 void gui_set_init_tile_index(int32_t n);
 bool gui_is_metric();
+bool gui_has_fast_interface();
 
 
 #endif /* GUI_TASK_H */

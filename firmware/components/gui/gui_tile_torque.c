@@ -169,6 +169,9 @@ static void _gui_tile_torque_set_active(bool en)
 			vm_set_request_item_mask(req_mask);
 		}
 		
+		// Enable averaging for incoming data if we have a fast enough interface
+		db_enable_fast_average(gui_has_fast_interface());
+		
 		// Initialize the update interval timer for meter animations (this will change
 		// to reflect real system timing)
 		gui_utility_init_update_time(100);
@@ -363,6 +366,9 @@ static void _gui_tile_torque_update_torque_meter(int32_t val, int index, bool im
 	if (immediate) {
 		_gui_tile_torque_set_torque_meter_cb((index == FRONT_TORQUE) ? f_torque_pos_arc : r_torque_pos_arc, val);
 	} else {
+		// Stop any previous animations
+		lv_anim_del((index == FRONT_TORQUE) ? f_torque_pos_arc : r_torque_pos_arc, _gui_tile_torque_set_torque_meter_cb);
+		
 		// Start an animation to the new value for the meter indicator
 		anim_time = gui_utility_get_update_period() - 20;   // Just slightly faster than the average update interval
 		lv_anim_init(&torque_animation[index]);

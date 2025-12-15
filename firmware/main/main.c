@@ -52,8 +52,9 @@ void app_main(void)
 	// Initialize shared resources
 	ESP_ERROR_CHECK(I2C_Init());
 	ESP_ERROR_CHECK(EXIO_Init());
-	db_init();
+	ESP_ERROR_CHECK(db_init());
 	
+	// Let them know we're alive
 	Buzzer_On();
 	vTaskDelay(pdMS_TO_TICKS(100));
 	Buzzer_Off();
