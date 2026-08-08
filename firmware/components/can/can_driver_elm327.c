@@ -69,6 +69,7 @@
 
 // Functions for CAN manager
 static bool _can_driver_elm327_init(int if_type, int req_timeout, bool can_is_500k);
+static void _can_driver_elm327_reset_timeout(int req_timeout);
 static bool _can_driver_elm327_connected();
 static bool _can_driver_elm327_tx_packet(uint32_t req_id, uint32_t rsp_id, int len, uint8_t* data);
 static bool _can_driver_elm327_tx_fc_packet(uint32_t req_id, int len, uint8_t* data);
@@ -95,6 +96,7 @@ const can_if_driver_t can_driver_elm327 =
 {
 	"CAN ELM327 Driver",
 	_can_driver_elm327_init,
+	_can_driver_elm327_reset_timeout,
 	_can_driver_elm327_connected,
 	_can_driver_elm327_tx_packet,
 	_can_driver_elm327_tx_fc_packet,
@@ -198,6 +200,12 @@ static bool _can_driver_elm327_init(int if_type, int req_timeout, bool can_is_50
 	}
 	
 	return success;
+}
+
+
+static void _can_driver_elm327_reset_timeout(int req_timeout)
+{
+	timeout_msec = req_timeout * 10;
 }
 
 
@@ -443,6 +451,7 @@ static void _can_driver_elm327_task()
 static void _can_driver_elm327_process_rx_buf()
 {
 	bool first_char = true;
+	bool second_char = false;
 	bool high_nibble = true;
 	bool has_version = false;
 	bool saw_data = false;
@@ -465,6 +474,7 @@ static void _can_driver_elm327_process_rx_buf()
 			
 			// CR (or NL) always set first_char for subsequent data
 			first_char = true;
+			second_char = false;
 			has_version = false;
 			high_nibble = true;
 			n = 0;
@@ -472,18 +482,19 @@ static void _can_driver_elm327_process_rx_buf()
 			if (tx_state == TX_ST_AT_CMD) {
 				if (first_char) {
 					if ((c == 'O') || (c == 'E')) {
-						// "OK" (or "ELM327" from ATZ)
+						// "OK" (or "OBDII vX.X" or "ELM327 vX.X" from ATZ)
 						success = true;
-						
-						if (c == 'E') {
-							// Start processing of string for version
-							has_version = true;
-							_can_driver_elm327_proc_version_info(c, true);
-						}
 					} else if (c == '?') {
 						ESP_LOGE(TAG, "Unknown TX command");
 						success = false;
 					}
+					second_char = true;
+				} else if (second_char) {
+					// Look for version string based on second character
+					if ((c == 'B') || (c == 'L')) {
+						has_version = true;
+					}
+					second_char = false;
 				} else if (has_version) {
 					// Collect and process characters until has_version is false (next CR)
 					_can_driver_elm327_proc_version_info(c, false);
@@ -527,8 +538,8 @@ static void _can_driver_elm327_process_rx_buf()
 			
 			// Clear flag after consuming it
 			first_char = false;
+			
 		}
-		
 	}
 	
 	// Skip past the '>' character in preparation for the next response

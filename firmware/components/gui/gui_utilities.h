@@ -39,10 +39,8 @@ float gui_util_c_to_f(float c);
 float gui_util_m_to_feet(float m);
 float gui_util_kph_to_mph(float kph);
 
-// Return number of ticks to display various sized meter
-uint16_t gui_utility_setup_large_270_meter_ticks(float min, float max);
-uint16_t gui_utility_setup_small_180_meter_ticks(float min, float max);
-uint16_t gui_utility_setup_small_270_meter_ticks(float min, float max);
+// Return number of ticks to display various scaled meter
+uint16_t gui_utility_setup_meter_ticks(float min, float max, float major_tick_inc);
 
 // Functions used to detect average interval between updates for meter animation purposes
 void gui_utility_init_update_time(uint32_t init_delay);

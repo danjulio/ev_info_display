@@ -36,7 +36,6 @@
 #include "gui_screen_intro.h"
 #include "gui_screen_main.h"
 #include "gui_screen_wifi.h"
-#include "lvgl.h"
 #include "mem_fb.h"
 #include "ST7701S.h"
 #include "touch_driver.h"
@@ -107,8 +106,10 @@ static void _gui_lvgl_init();
 static void _gui_init_screens();
 static void _lv_tick_callback();
 static void _gui_ps_update_timer_cb(lv_timer_t* timer);
+#ifdef ENABLE_SCREENDUMP
 static bool _gui_screendump_button_eval();
 static void _gui_do_screendump();
+#endif
 
 
 //

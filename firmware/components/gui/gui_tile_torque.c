@@ -64,6 +64,7 @@ static bool has_elevation;
 // Vehicle specific ranges
 static float torque_min;
 static float torque_max;
+static float torque_major_tick;
 
 // State
 static bool units_metric;
@@ -193,7 +194,7 @@ static bool _gui_tile_torque_setup_vehicle()
 	has_elevation            = (capability_mask & DB_ITEM_GPS_ELEVATION) != 0;
 	
 	if (has_torque[FRONT_TORQUE] || has_torque[REAR_TORQUE]) {
-		vm_get_range(VM_RANGE_TORQUE, &torque_min, &torque_max);
+		vm_get_range(VM_RANGE_TORQUE, &torque_min, &torque_max, &torque_major_tick);
 		
 		return true;
 	} else {
@@ -206,7 +207,7 @@ static void _gui_tile_torque_setup_torque_meter()
 {
 	int32_t meter_min = (int32_t) torque_min;
 	int32_t meter_max = (int32_t) torque_max;
-	uint16_t meter_ticks = gui_utility_setup_large_270_meter_ticks(torque_min, torque_max);
+	uint16_t meter_ticks = gui_utility_setup_meter_ticks(torque_min, torque_max, torque_major_tick);
 	uint16_t arc_inset = 12;
 	lv_meter_indicator_t * indic;
 	
@@ -220,6 +221,7 @@ static void _gui_tile_torque_setup_torque_meter()
     	// Use meter's padding for arc
     	lv_obj_set_size(meter_torque, tile_w, tile_h);
     }
+    lv_obj_set_style_bg_color(meter_torque, GUI_OBJ_BG_COLOR, LV_PART_MAIN);
 
     // Remove the circle from the middle
     lv_obj_remove_style(meter_torque, NULL, LV_PART_INDICATOR);
@@ -305,7 +307,7 @@ static void _gui_tile_torque_setup_torque_meter()
 	torque_val_lbl = lv_label_create(tile);
 	lv_label_set_long_mode(torque_val_lbl, LV_LABEL_LONG_WRAP);
 	lv_obj_set_style_text_align(torque_val_lbl, LV_TEXT_ALIGN_CENTER, 0);
-	lv_obj_set_style_text_font(torque_val_lbl, &lv_font_montserrat_30, LV_PART_MAIN);
+	lv_obj_set_style_text_font(torque_val_lbl, &lv_font_montserrat_36, LV_PART_MAIN);
 	lv_obj_align(torque_val_lbl, LV_ALIGN_CENTER, 0, -(tile_h/4) + 10);
 	
 	// Initialize the meter to 0

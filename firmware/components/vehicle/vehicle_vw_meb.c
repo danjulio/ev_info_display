@@ -1,7 +1,7 @@
 /*
  * Volkswagen MEB platform vehicle implementation
  *
- * Copyright 2025 Dan Julio
+ * Copyright 2025-2026 Dan Julio
  *
  * This is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 #include "data_broker.h"
 #include "esp_system.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 
 //
@@ -44,8 +45,9 @@
 #define UDS_GEAR_POSITION 9
 #define UDS_SPEED         10
 #define UDS_HV_CELL_VOLT  11
+#define UDS_CAR_MODE      12
 
-#define NUM_UDS_REQ_ITEMS 12
+#define NUM_UDS_REQ_ITEMS 13
 
 // Gear position constants
 #define GEAR_PARK         0x08
@@ -54,13 +56,29 @@
 #define GEAR_DRIVE_D      0x05
 #define GEAR_DRIVE_B      0x0C
 
+// Car Mode constants
+#define MODE_STANDBY      0x00
+#define MODE_DRIVING      0x01
+#define MODE_AC_CHARGE    0x04
+#define MODE_DC_CHARGE    0x06
+
+// Car Mode request interval.  This is based on my 2024 ID.4 period of about 11 seconds
+// between car mode returning to STANDBY and the gateway stopping replying to my requests.
+// We want this to be slow so we don't slow down displayed requests (e.g. in the speed test tile).
+#define CAR_MODE_REQ_USEC (5000 * 1000)
+
+// GPS Info request interval.  The GPS in my ID.4 does not appear to be happy with too many
+// requests, returning time-outs and negative responses.  Since it's not a datum that requires
+// fast updating, we slow it down to an interval that, at least, eliminates the timeouts.
+#define GPS_REQ_USEC      (1500 * 1000)
+
 
 //
 //  Forward declarations
 //
 
 // Functions for vehicle manager
-static void _vw_meb_init();
+static void _vw_meb_init(int if_type);
 static void _vw_meb_eval();
 static void _vw_meb_set_req_mask(uint32_t mask);
 static void _vw_meb_rx_data(uint32_t id, int len, uint8_t* data);
@@ -71,23 +89,24 @@ static void _vw_meb_error(int errno);
 //
 // Vehicle definitions
 //
-const vehicle_config_t vehicle_vw_meb_rwd =
+// ID.3 Pure
+const vehicle_config_t vehicle_vw_meb84_rwd = 
 {
-	"VW MEB RWD",
+	"VW MEB84 RWD",
 	DB_ITEM_HV_BATT_V | DB_ITEM_HV_BATT_I | DB_ITEM_HV_BATT_MIN_T | DB_ITEM_HV_BATT_MAX_T | \
 	DB_ITEM_LV_BATT_V | DB_ITEM_LV_BATT_I | \
 	DB_ITEM_AUX_KW | DB_ITEM_REAR_TORQUE | \
 	DB_ITEM_SPEED | DB_ITEM_GPS_ELEVATION | \
 	DB_ITEM_HV_CELL_V,
-	96,                 // Number of cells in HV battery
-	{-200.0, 300.0},    // power_kw_range
-	{0.0, 16.0},        // aux_kw_range
-	{-150.0, 350.0},    // torque_nm_range
-	{-400.0, 600.0},    // hv_batt_i_range
-	{10.0, 16.0},       // lv_batt_v_range
-	{3.0, 4.2},         // hv_batt_cell_range
-	true,               // 500k CAN
-	500,                // Request timeout (mSec)
+	84,                      // Number of cells in HV battery
+	{-150.0, 200.0, 50.0},   // power_kw_range
+	{0.0, 16.0, 3.0},        // aux_kw_range
+	{-200.0, 400.0, 50.0},   // torque_nm_range
+	{-300.0, 500.0, 100.0},  // hv_batt_i_range
+	{10.0, 16.0, 2.0},       // lv_batt_v_range
+	{3.0, 4.2, 0.2},         // hv_batt_cell_range
+	true,                    // 500k CAN
+	500,                     // Request timeout (mSec)
 	_vw_meb_init,
 	_vw_meb_eval,
 	_vw_meb_set_req_mask,
@@ -95,7 +114,33 @@ const vehicle_config_t vehicle_vw_meb_rwd =
 	_vw_meb_error
 };
 
-const vehicle_config_t vehicle_vw_meb_awd =
+// ID.3 Pure Performance, ID.4, ID.5, ID.Buzz SWB RWD
+const vehicle_config_t vehicle_vw_meb96_rwd =
+{
+	"VW MEB RWD",
+	DB_ITEM_HV_BATT_V | DB_ITEM_HV_BATT_I | DB_ITEM_HV_BATT_MIN_T | DB_ITEM_HV_BATT_MAX_T | \
+	DB_ITEM_LV_BATT_V | DB_ITEM_LV_BATT_I | \
+	DB_ITEM_AUX_KW | DB_ITEM_REAR_TORQUE | \
+	DB_ITEM_SPEED | DB_ITEM_GPS_ELEVATION | \
+	DB_ITEM_HV_CELL_V,
+	96,                      // Number of cells in HV battery
+	{-200.0, 300.0, 50.0},   // power_kw_range
+	{0.0, 16.0, 3.0},        // aux_kw_range
+	{-200.0, 500.0, 100.0},  // torque_nm_range
+	{-400.0, 600.0, 100.0},  // hv_batt_i_range
+	{10.0, 16.0, 2.0},       // lv_batt_v_range
+	{3.0, 4.2, 0.2},         // hv_batt_cell_range
+	true,                    // 500k CAN
+	500,                     // Request timeout (mSec)
+	_vw_meb_init,
+	_vw_meb_eval,
+	_vw_meb_set_req_mask,
+	_vw_meb_rx_data,
+	_vw_meb_error
+};
+
+// ID.3 Pure Performance, ID.4, ID.5, ID.Buzz SWB AWD
+const vehicle_config_t vehicle_vw_meb96_awd =
 {
 	"VW MEB AWD",
 	DB_ITEM_HV_BATT_V | DB_ITEM_HV_BATT_I | DB_ITEM_HV_BATT_MIN_T | DB_ITEM_HV_BATT_MAX_T | \
@@ -103,15 +148,87 @@ const vehicle_config_t vehicle_vw_meb_awd =
 	DB_ITEM_AUX_KW | DB_ITEM_FRONT_TORQUE | DB_ITEM_REAR_TORQUE | \
 	DB_ITEM_SPEED | DB_ITEM_GPS_ELEVATION | \
 	DB_ITEM_HV_CELL_V,
-	96,                 // Number of cells in HV battery
-	{-200.0, 300.0},    // power_kw_range
-	{0.0, 16.0},        // aux_kw_range
-	{-150.0, 350.0},    // torque_nm_range
-	{-400.0, 800.0},    // hv_batt_i_range
-	{10.0, 16.0},       // lv_batt_v_range
-	{3.0, 4.2},         // hv_batt_cell_range
-	true,               // 500k CAN
-	500,                // Request timeout (mSec)
+	96,                      // Number of cells in HV battery
+	{-200.0, 300.0, 50.0},   // power_kw_range
+	{0.0, 16.0, 3.0},        // aux_kw_range
+	{-200.0, 500.0, 100.0},  // torque_nm_range
+	{-400.0, 800.0, 100.0},  // hv_batt_i_range
+	{10.0, 16.0, 2.0},       // lv_batt_v_range
+	{3.0, 4.2, 0.2},         // hv_batt_cell_range
+	true,                    // 500k CAN
+	500,                     // Request timeout (mSec)
+	_vw_meb_init,
+	_vw_meb_eval,
+	_vw_meb_set_req_mask,
+	_vw_meb_rx_data,
+	_vw_meb_error
+};
+
+// ID.Buzz LWB RWD
+const vehicle_config_t vehicle_vw_meb104_rwd = {
+	"VW MEB104 RWD",
+	DB_ITEM_HV_BATT_V | DB_ITEM_HV_BATT_I | DB_ITEM_HV_BATT_MIN_T | DB_ITEM_HV_BATT_MAX_T | \
+	DB_ITEM_LV_BATT_V | DB_ITEM_LV_BATT_I | \
+	DB_ITEM_AUX_KW | DB_ITEM_REAR_TORQUE | \
+	DB_ITEM_SPEED | DB_ITEM_GPS_ELEVATION | \
+	DB_ITEM_HV_CELL_V,
+	104,                     // Number of cells in HV battery
+	{-200.0, 300.0, 50.0},   // power_kw_range
+	{0.0, 16.0, 3.0},        // aux_kw_range
+	{-200.0, 500.0, 100.0},  // torque_nm_range
+	{-400.0, 600.0, 100.0},  // hv_batt_i_range
+	{10.0, 16.0, 2.0},       // lv_batt_v_range
+	{3.0, 4.2, 0.2},         // hv_batt_cell_range
+	true,                    // 500k CAN
+	500,                     // Request timeout (mSec)
+	_vw_meb_init,
+	_vw_meb_eval,
+	_vw_meb_set_req_mask,
+	_vw_meb_rx_data,
+	_vw_meb_error
+};
+
+// ID.Buzz LWB AWD
+const vehicle_config_t vehicle_vw_meb104_awd = {
+	"VW MEB104 AWD",
+	DB_ITEM_HV_BATT_V | DB_ITEM_HV_BATT_I | DB_ITEM_HV_BATT_MIN_T | DB_ITEM_HV_BATT_MAX_T | \
+	DB_ITEM_LV_BATT_V | DB_ITEM_LV_BATT_I | \
+	DB_ITEM_AUX_KW | DB_ITEM_FRONT_TORQUE | DB_ITEM_REAR_TORQUE | \
+	DB_ITEM_SPEED | DB_ITEM_GPS_ELEVATION | \
+	DB_ITEM_HV_CELL_V,
+	104,                     // Number of cells in HV battery
+	{-200.0, 300.0, 50.0},   // power_kw_range
+	{0.0, 16.0, 3.0},        // aux_kw_range
+	{-200.0, 500.0, 100.0},  // torque_nm_range
+	{-400.0, 800.0, 100.0},  // hv_batt_i_range
+	{10.0, 16.0, 2.0},       // lv_batt_v_range
+	{3.0, 4.2, 0.2},         // hv_batt_cell_range
+	true,                    // 500k CAN
+	500,                     // Request timeout (mSec)
+	_vw_meb_init,
+	_vw_meb_eval,
+	_vw_meb_set_req_mask,
+	_vw_meb_rx_data,
+	_vw_meb_error
+};
+
+// ID.3 Pro RWD
+const vehicle_config_t vehicle_vw_meb108_rwd = {
+	"VW MEB108 RWD",
+	DB_ITEM_HV_BATT_V | DB_ITEM_HV_BATT_I | DB_ITEM_HV_BATT_MIN_T | DB_ITEM_HV_BATT_MAX_T | \
+	DB_ITEM_LV_BATT_V | DB_ITEM_LV_BATT_I | \
+	DB_ITEM_AUX_KW | DB_ITEM_REAR_TORQUE | \
+	DB_ITEM_SPEED | DB_ITEM_GPS_ELEVATION | \
+	DB_ITEM_HV_CELL_V,
+	108,                     // Number of cells in HV battery
+	{-150.0, 250.0, 50.0},   // power_kw_range
+	{0.0, 16.0, 3.0},        // aux_kw_range
+	{-200.0, 400.0, 100.0},  // torque_nm_range
+	{-300.0, 500.0, 100.0},  // hv_batt_i_range
+	{10.0, 16.0, 2.0},       // lv_batt_v_range
+	{3.0, 4.2, 0.2},         // hv_batt_cell_range
+	true,                    // 500k CAN
+	500,                     // Request timeout (mSec)
 	_vw_meb_init,
 	_vw_meb_eval,
 	_vw_meb_set_req_mask,
@@ -124,7 +241,7 @@ const vehicle_config_t vehicle_vw_meb_awd =
 //
 // Vehicle UDS service CAN request packets (must match list of indicies)
 //
-//                                                 Req ID      Rsp ID         PCI   SID
+//                                                 Req ID      Rsp ID         PCI   SID                                      indexed  index base
 static const can_request_t req_12v_batt_info   = {     0x710,      0x77A, 8, {0x03, 0x22, 0x2A, 0xF7, 0x00, 0x00, 0x00, 0x00}, false, 0};
 //static const can_request_t req_hv_ptc_current  = {0x17fc007b, 0x17fe007b, 8, {0x03, 0x22, 0x16, 0x20, 0x00, 0x00, 0x00, 0x00}, false, 0}; // Not necessary (in Aux)
 static const can_request_t req_gps_info        = {     0x767,      0x7D1, 8, {0x03, 0x22, 0x24, 0x30, 0x00, 0x00, 0x00, 0x00}, false, 0};
@@ -138,6 +255,7 @@ static const can_request_t req_rear_torque     = {0x17fc0076, 0x17fe0076, 8, {0x
 static const can_request_t req_gear_pos        = {0x17fc0076, 0x17fe0076, 8, {0x03, 0x22, 0x21, 0x0E, 0x00, 0x00, 0x00, 0x00}, false, 0};
 static const can_request_t req_speed           = {0x18DB33F1, 0x18DAF101, 8, {0x02, 0x01, 0x0D, 0x00, 0x00, 0x00, 0x00, 0x00}, false, 0};
 static const can_request_t req_hv_cell_volt    = {0x17fc007b, 0x17fe007b, 8, {0x03, 0x22, 0x1E, 0x40, 0x00, 0x00, 0x00, 0x00}, true, 3};  // data[3] is index base value
+static const can_request_t req_car_mode        = {0x17fc007b, 0x17fe007b, 8, {0x03, 0x22, 0x74, 0x48, 0x00, 0x00, 0x00, 0x00}, false, 0};
 
 static const can_request_t* req_full_listP[NUM_UDS_REQ_ITEMS] = {
 	&req_12v_batt_info,
@@ -151,7 +269,8 @@ static const can_request_t* req_full_listP[NUM_UDS_REQ_ITEMS] = {
 	&req_rear_torque,
 	&req_gear_pos,
 	&req_speed,
-	&req_hv_cell_volt
+	&req_hv_cell_volt,
+	&req_car_mode
 };
 
 
@@ -162,6 +281,7 @@ static const can_request_t* req_full_listP[NUM_UDS_REQ_ITEMS] = {
 static const char* TAG = "vehicle_vw_meb";
 
 // OBD2 Request management
+static bool req_enable = true;
 static can_request_t* req_listP[NUM_UDS_REQ_ITEMS];
 static bool req_in_process = false;
 static bool req_timeout = false;
@@ -171,16 +291,22 @@ static int req_index = 0;
 static int num_req_entries = 0;
 static int indexed_val_index = 0;
 static int num_indexed_vals = 0;
+static int64_t car_mode_req_timestamp = 0;
+static int64_t gps_req_timestamp = 0;
 
 // Partial data values
 static bool in_reverse = false;
+
+// Car Mode to control CAN access after car shuts down but perhaps power to this device continues
+// in order not to set off the alarm with some car software packages
+static uint8_t car_mode = 0x00;
 
 
 
 //
 // Vehicle manager functions
 //
-static void _vw_meb_init()
+static void _vw_meb_init(int if_type)
 {
 	// We don't need to filter the OBD CAN bus because the car's gateway does that for us
 	can_en_rsp_filter(false);
@@ -190,7 +316,9 @@ static void _vw_meb_init()
 static void _vw_meb_eval()
 {
 	bool inc_req_index = false;
-	uint8_t req_data[8];
+	bool proc_req = true;           // Always send request except for special case UDS_CAR_MODE
+	static uint8_t req_data[8];
+	int64_t cur_timestamp;
 	
 	// Handle any responses or timeout
 	if (req_in_process) {
@@ -205,26 +333,54 @@ static void _vw_meb_eval()
 	}
 	
 	// Look to see if we can make a request
-	if (!req_in_process && (num_req_entries > 0)) {
-		req_in_process = true;
-		saw_response = false;
-		req_timeout = false;
+	if (req_enable && !req_in_process && (num_req_entries > 0)) {
+		// Handle the special cases where we time-limit particular IDs by checking for a ID-specific
+		// timeout as we spin through the active IDs.
+		//   1. Slow down UDS_CAR_MODE requests because we have many seconds to detect a mode change
+		//      and we don't want to slow down getting displayable datums.
+		//   2. Slow down UDS_GPI_INFO requests because the GPS subsystem doesn't like to be accessed
+		//      too frequently and elevation doesn't change that quickly.
+		if (req_listP[req_index] == req_full_listP[UDS_CAR_MODE]) {
+			cur_timestamp = esp_timer_get_time();  // uSec
+			if ((cur_timestamp - car_mode_req_timestamp) < CAR_MODE_REQ_USEC) {
+				// Skip sending the request for now
+				proc_req = false;
+			} else {
+				// Allow sending the request and reset the timer
+				car_mode_req_timestamp = cur_timestamp;
+			}
+		} else if (req_listP[req_index] == req_full_listP[UDS_GPS_INFO]) {
+			cur_timestamp = esp_timer_get_time();  // uSec
+			if ((cur_timestamp - gps_req_timestamp) < GPS_REQ_USEC) {
+				// Skip sending the request for now
+				proc_req = false;
+			} else {
+				// Allow sending the request and reset the timer
+				gps_req_timestamp = cur_timestamp;
+			}
+		}
 		
+		if (proc_req) {
+			req_in_process = true;
+			saw_response = false;
+			req_timeout = false;
+			
 #ifdef DEBUG_DATA
 			ESP_LOGI(TAG, "TX: id = %lx, rsp = %lx, len = %d", req_listP[req_index]->req_id, req_listP[req_index]->rsp_id, req_listP[req_index]->req_len);
 #endif
-		// Local copy of data in case we have to modify it before sending it
-		memcpy(req_data, req_listP[req_index]->data, (size_t) req_listP[req_index]->req_len);
-		if (req_listP[req_index]->is_indexed) {
-			// Set index data byte with current index
-			req_data[req_listP[req_index]->index_loc] = req_listP[req_index]->data[req_listP[req_index]->index_loc] + indexed_val_index++;
-		}
-		
-		if (can_tx_packet(req_listP[req_index]->req_id, req_listP[req_index]->rsp_id, req_listP[req_index]->req_len, req_data)) {
-			saw_error = false;
-		} else {
-			saw_error = true;
-			ESP_LOGE(TAG, "CAN TX fail - ID = %lx", req_listP[req_index]->req_id);
+			// Local copy of data in case we have to modify it before sending it
+			memcpy(req_data, req_listP[req_index]->data, (size_t) req_listP[req_index]->req_len);
+			if (req_listP[req_index]->is_indexed) {
+				// Set index data byte with current index
+				req_data[req_listP[req_index]->index_loc] = req_listP[req_index]->data[req_listP[req_index]->index_loc] + indexed_val_index++;
+			}
+			
+			if (can_tx_packet(req_listP[req_index]->req_id, req_listP[req_index]->rsp_id, req_listP[req_index]->req_len, req_data)) {
+				saw_error = false;
+			} else {
+				saw_error = true;
+				ESP_LOGE(TAG, "CAN TX fail - ID = %lx", req_listP[req_index]->req_id);
+			}
 		}
 		
 		// Setup for next request
@@ -270,6 +426,7 @@ static void _vw_meb_set_req_mask(uint32_t mask)
 	required_req[UDS_GEAR_POSITION] = vm_mask_check(mask, DB_ITEM_FRONT_TORQUE | DB_ITEM_REAR_TORQUE);
 	required_req[UDS_SPEED]         = vm_mask_check(mask, DB_ITEM_SPEED);
 	required_req[UDS_HV_CELL_VOLT]  = vm_mask_check(mask, DB_ITEM_HV_CELL_V);
+	required_req[UDS_CAR_MODE]      = mask != 0; // Always enabled whenever we want to request data
 	
 	// Build up our list of requests and reset starting point
 	num_req_entries = 0;
@@ -301,6 +458,10 @@ static void _vw_meb_rx_data(uint32_t id, int len, uint8_t* data)
 	
 #ifdef DEBUG_DATA
 	ESP_LOGI(TAG, "RX: id = %lx, len = %d", id, len);
+	for (n=0; n<len; n++) {
+		printf(" %0X", *(data+n));
+	}
+	printf("\n");
 #endif
 
 	// Try to find the request this response matches
@@ -320,8 +481,15 @@ static void _vw_meb_rx_data(uint32_t id, int len, uint8_t* data)
 			
 		case UDS_GPS_INFO:
 			if (len == 33) {
-				i16 = (data[31] << 8) + data[32];
-				f = (float) i16 - 501.0;
+				u16 = (data[31] << 8) + data[32];
+				if ((u16 & 0x8000) == 0x8000) {
+					// Work around bug in elevation data greater than 0xEBF.  In my 2024
+					// ID.4 I see that data jump from something like 0xEBF to 0xF52B and
+					// I calculated through experimentation that it's jumping about 0xE66A
+					// for some strage reason.
+					u16 = u16 - 0xE66A;
+				}
+				f = (float) u16 - 501.0;
 				vm_update_data_item(DB_ITEM_GPS_ELEVATION, f);
 			}
 			break;
@@ -418,6 +586,21 @@ static void _vw_meb_rx_data(uint32_t id, int len, uint8_t* data)
 				} else {
 					// Intermediate index value
 					vm_update_indexed_data_item(DB_ITEM_HV_CELL_V, (int) i16, f, false);
+				}
+			}
+			break;
+			
+		case UDS_CAR_MODE:
+			if (len == 4) {
+				if (data[3] != car_mode) {
+					if (req_enable && (car_mode != MODE_STANDBY) && (data[3] == MODE_STANDBY)) {
+						ESP_LOGI(TAG, "Car Standby, disabling CAN requests");
+						req_enable = false;
+					} else if (!req_enable && (car_mode == MODE_STANDBY) && (data[3] != MODE_STANDBY)) {
+						ESP_LOGI(TAG, "Car Active, enabling CAN requests");
+						req_enable = true;
+					}
+					car_mode = data[3];
 				}
 			}
 			break;

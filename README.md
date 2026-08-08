@@ -23,14 +23,21 @@ EV Info Display has been tested with the following ELM327 OBD2 modules.
 1. LELink2 OBD-II BLE module
 2. MeatPi Electronics WiCAN-PRO (Wifi only)
 
+It should also work with the Vgate iCar Pro 4.0 BLE dongle but this is untested at the moment.
+
 Currently supported vehicles include
 
-1. VW MEB platform vehicles with 96-cell traction batteries such as the ID.4 (RWD / AWD)
+1. Nissan Leaf ZE0 (2013-2017 models) experimental support
 2. Nissan Leaf ZE1 (2018-2025 models)
+3. VW MEB RWD platform with 84-cell traction battery (e.g. ID.3 Pure)
+4. VW MEB AWD/RWD platform with 96-cell traction battery (e.g ID.3, ID.4, European ID.Buzz)
+5. VW MEB AWD/RWD platform with 104-cell traction battery (e.g. U.S. ID.Buzz)
+6. VW MEB RWD platform with 108-cell traction battery (e.g. ID.3 Pro)
 
-The firmware is designed to allow easy addition of new vehicles.  Feel free to reach out to me about adding new vehicles.  You'll need the OBD2/CAN bus transactions necessary to get the various datums and a vehicle to test in.
 
-Please look below to find instructions for easily loading pre-compiled firmware binaries onto the Waveshare board.
+The firmware is designed to allow easy addition of new vehicles.  A set of instructions may be found below.  You'll need the OBD2/CAN UDS bus transactions necessary to get the various datums and a vehicle to test in.
+
+Also look below to find instructions for easily loading pre-compiled firmware binaries onto the Waveshare board.
 
 ### Operation
 
@@ -113,6 +120,7 @@ Click ```X``` to cancel, ```√``` to set the entry.  Then in the Wifi Setup win
 2. I have seen, on rare occasion, the VW MEM platform stop replying to particular query items resulting in a frozen value for that item.  Powering off the car and turning it back on fixes the problem.
 3. There is a bug in the Espressif IDF when using BLE.  EV Info Display will attempt to repeatedly poll for BLE devices to connect too.  However randomly the polling process will crash the ESP32 and reboot the device.  I tried to debug this but I think it's deep in some "blob" code.  During normal operation it shouldn't pose much of a problem as EV Info Display will immediately connect to the BLE interface module.
 4. The Cell Voltage graph glitches slightly when swiping.  I think this is an issue of PSRAM access (where the drawing canvas is stored) and the LCD Update peripheral.
+5. Nissan Leaf AZEO HW CAN interface is slow because the ESP32 TWAI driver seems to miss responses among all the raw car traffic it sees on the CAR CAN interface that's present on the ODB Port.  This results in slow/jerky updates.  For the AZE0 it can be better to use a BLE or Wifi dongle.
 
 ### Installation
 Please see below for information about a 3D printed enclosure that can be used to hold the Waveshare board.
@@ -127,6 +135,7 @@ Using the direct CAN bus interface requires adding a CAN Bus transceiver chip to
 
 1. Connect USB Power to the Native USB connector (not the Serial USB connector)
 2. Connect the CAN Transceiver breakout board as shown below.  You can use the wiring harnesses that come with the Waveshare board.  Note that you'll have to create a twisted pair wire harness to the OBD2 connector.
+3. The CAN Transceiver breakout should not have a termination resistor.
 
 ![Wiring with CAN breakout board](pictures/can_breakout_wiring.jpg)
 
@@ -146,9 +155,9 @@ Note that the automatic switching does not work well with the Leaf because of th
 ![Wiring diagram for Switched CAN Interface on Leaf](pictures/switched_can_if_wiring_leaf.jpg)
 
 ### Building the firmware
-EV Info Display is built using the [Espressif IDF ](https://docs.espressif.com/projects/esp-idf/en/v5.5.1/esp32/index.html) version 5.5.1.
+EV Info Display is built using the [Espressif IDF ](https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32/index.html) version 5.5.5.
 
-Assuming you have [installed](https://docs.espressif.com/projects/esp-idf/en/v5.5.1/esp32/get-started/index.html) the IDF and a local copy of this repo on your computer, change to the ```firmware``` directory and perform the following steps.
+Assuming you have [installed](https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32/get-started/index.html) the IDF and a local copy of this repo on your computer, change to the ```firmware``` directory and perform the following steps.
 
 1. Execute the IDF configuration script
 2. Type ```idf.py build```
@@ -177,6 +186,7 @@ The firmware logs various events to the native USB Serial port.
 | 0.1 | Initial Release |
 | 0.2 | MEB Reverse bug fix, smoother display and minor cleanup<br>1. Add slight averaging for data when using TWAI (direct CAN) IF for smoother numeric displays (less jittery).<br> 2. Reduce number of averaged timestamps to compute largee arc change delta time intervals for smoother updates.<br> 3. Stop any ongoing arc animations on each update to prevent occasional apparent jumps in meter position.<br> 4. Detect MEB platform gear position to correctly display positive torque during reverse.<br> 5. Add untested support for Vgate iCan Pro 4.0 BLE dongle.<br> 6.  Misc code cleanup. |
 | 0.3 | 1. Added Traction Battery Cell Voltage tile.<br>2. Fixed a bug in the data smoothing when an ELM327 interface is selected.<br>3. Added vehicle support for indexed data items.<br>4. Moved to LVGL v8.3.11 (from v8.2).<br>5. Fixed a bug where tile would be shown even if vehicle didn’t support its items.<br>6. Increased task stack size. |
+| 0.4 | 1. Added experimental Nissan Leaf AZE0 support.<br>2. Added additional VW MEB platforms (84, 104, 108 cell-count batteries).<br>3. Increased display contrast for better visibility.<br>4. Adjusted displayed gauge limits to better match actual vehicles.<br>5. Support for LE Link devices that return an incorrect ELM327 version string.<br>6. Work-around for VW MEB platform bug in reporting GPS elevation over 3274 meters.<br>7. Fix race condition in MEB code that might result in a load exception and reboot.<br>8. Internal changes for determining gauge tick counts and added ability to reset CAN interface faster on timeouts (for AZE0).<br>9. Modified code to support IDF v5.5.5 compiler checks. |
 
 ### Programming pre-compiled firmware
 The built binaries may be found in the ```precompiled``` directory in this repo.  There are a variety of ways to load these into the Waveshare board, including using the IDF, Espressif's Windows-only utility program or their web-browser based serial flasher described here.
@@ -215,6 +225,25 @@ A Persistent Storage module, implemented using the ESP32's NVRAM flash abstracti
 #### Adding a new vehicle type
 
 There is no standardization of OBD commands in the BEV world so each different vehicle type requires its own vehicle specific module consisting of a ```.c``` and ```.h``` file that are included in the ```vehicle``` sub-directory and used in the```vehicle_manager.c``` file.  This module contains a list of OBD commands to send for the various items necessary to get all supported datums.  It also contains a set of logic that is periodically evaluated by the Vehicle Manager which sends one command at a time and handles the responses from the CAN Manager.  This logic may be configured for the specific set of datums the currently displayed tile requires.  It is responsible for taking vehicle-specific pieces of data and creating the datums that the firmware defines in ```data_broker.h```.
+
+1. Create vehicle-specific ```.c``` and ```.h``` files in ```vehicle```.  Use existing files as a template.
+2. Create ```const vehicle_config_t``` data structures to define specific vehicles (supported datums, datum ranges and pointers to internal functions.
+3. Create a list of ```can_request_t``` data structure to define the UDS commands for each supported datum.  The datums are defined in ```data_broker.h```.
+4. Define any necessary constants and private data needed to convert the request data to displayed datums.  For example I use knowledge of the vehicle's current "gear" to negate the MEB torque value in reverse so the display always shows positive torque for movement and negative torque values for regenerative braking.
+5. Implement a set of functions required by the ```vehicle_config_t``` data structure to initialize, evaluate and handle call-backs for the new vehicle.
+6. Add the vehicle header file to ```vehicle_manager.c``` and update the ```static const vehicle_config_t* vehicle_listP``` data structure and ```NUM_VEHICLES``` constant with the new vehicle.
+
+Note that the ```vehicle_config_t``` ```name``` member will be displayed in the GUI Settings Vehicle drop-down (and stored in persistent storage).
+
+Five functions must be defined in step 5 above and are described below.  Vehicle implementations may of course include other internal functions.
+
+1. ```fcn_init``` is called after boot before evaluation starts.  Typically it is used to enable CAN filtering for cars like the Leaf AZE0 that don't have a CAN gateway and present all internal traffic on the OBD port or disable CAN filtering for cars that have a CAN gateway module using the ```can_en_rsp_filter``` function.
+2. ```fcn_eval``` is called every 10 mSec by ```can_task``` through ```can_manager```.  It is responsible for loading new UDS requests to update datums.  It should only allow one outstanding request at a time.  Requests are satisfied by the receipt of data or an error.  Error cases include things like timeout and negative CAN responses from the car.
+3. ```fcn_set_req_mask``` is called by ```vehicle_manager``` on behalf of the ```gui_task``` with a bitmask containing ```data_broker``` datums to request for the currently displayed screen.  It configures the list of UDS requests to make to satisfy the screen without constantly requesting items that will not be displayed.
+4. ```fcn_rx_data``` is called by ```vehicle_manager``` with the UDS response ID, length and data for the currently outstanding request.  The ID should be mapped back to the datum, data converted to the datum's desired format and ```vm_update_data_item``` or ```vm_update_indexed_data_item``` called to get the data to the GUI.
+5. ```fcn_note_can_error``` is called by ```vehicle_manager``` with errors. Currently only a request timeout is reported this way (immediate errors are reported when the request is made with ```can_tx_packet``` is called in the ```fcn_eval``` routine and errors like a negative response are reported as timeouts).
+
+The ```vehicle_leaf_ze1``` files are a good example of a simple vehicle implementation.  The ```vehicle_vw_meb``` files are more complex and include some work-arounds for issues found in that platform's UDS interface.
 
 ### Enclosures
 See the ```enclosure``` directory for CAD files for a simple 3D-printed enclosure.  It can be printed in two forms.

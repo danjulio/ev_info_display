@@ -1,7 +1,7 @@
 /*
- * Nissan Leaf ZE1 (2018-2025) platform vehicle implementation
+ * Nissan Leaf AZE0 (2013-2017) platform vehicle implementation
  *
- * Copyright 2025 Dan Julio
+ * Copyright 2026 Dan Julio
  *
  * This is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  * along with this software.  If not, see <https://www.gnu.org/licenses/>.
  *
  */
-#include "vehicle_leaf_ze1.h"
+#include "vehicle_leaf_aze0.h"
 #include "can_manager.h"
 #include "data_broker.h"
 #include "esp_system.h"
@@ -59,41 +59,41 @@
 //
 
 // Functions for vehicle manager
-static void _leaf_ze1_init(int if_type);
-static void _leaf_ze1_eval();
-static void _leaf_ze1_set_req_mask(uint32_t mask);
-static void _leaf_ze1_rx_data(uint32_t id, int len, uint8_t* data);
-static void _leaf_ze1_error(int errno);
+static void _leaf_aze0_init(int if_type);
+static void _leaf_aze0_eval();
+static void _leaf_aze0_set_req_mask(uint32_t mask);
+static void _leaf_aze0_rx_data(uint32_t id, int len, uint8_t* data);
+static void _leaf_aze0_error(int errno);
 
 // Internal functions
-static float _leaf_ze1_hv_batt_raw_to_f(int16_t raw);
+static float _leaf_aze0_hv_batt_raw_to_f(int16_t raw);
 
 
 //
 // Vehicle definitions
 //
-const vehicle_config_t vehicle_leaf_ze1 =
+const vehicle_config_t vehicle_leaf_aze0 =
 {
-	"Leaf ZE1",
+	"Leaf AZE0",
 	DB_ITEM_HV_BATT_V | DB_ITEM_HV_BATT_I | DB_ITEM_HV_BATT_MIN_T | DB_ITEM_HV_BATT_MAX_T | \
 	DB_ITEM_LV_BATT_V | DB_ITEM_LV_BATT_I | \
 	DB_ITEM_AUX_KW | DB_ITEM_FRONT_TORQUE | \
 	DB_ITEM_SPEED | \
 	DB_ITEM_HV_CELL_V,
 	96,                      // Number of cells in HV battery
-	{-60.0, 160.0, 20.0},    // power_kw_range
+	{-40.0, 100.0, 20.0},    // power_kw_range
 	{0.0, 8.0, 2.0},         // aux_kw_range
-	{-150.0, 350.0, 50.0},   // torque_nm_range
-	{-150.0, 500.0, 50.0},   // hv_batt_i_range
+	{-100.0, 250.0, 50.0},   // torque_nm_range
+	{-150.0, 250.0, 50.0},   // hv_batt_i_range
 	{10.0, 16.0, 2.0},       // lv_batt_v_range
 	{3.0, 4.2, 0.2},         // hv_batt_cell_range
 	true,                    // 500k CAN
 	500,                     // Request timeout (mSec)
-	_leaf_ze1_init,
-	_leaf_ze1_eval,
-	_leaf_ze1_set_req_mask,
-	_leaf_ze1_rx_data,
-	_leaf_ze1_error
+	_leaf_aze0_init,
+	_leaf_aze0_eval,
+	_leaf_aze0_set_req_mask,
+	_leaf_aze0_rx_data,
+	_leaf_aze0_error
 };
 
 
@@ -131,7 +131,7 @@ static const can_request_t* req_full_listP[] = {
 //
 // Global variables
 //
-static const char* TAG = "vehicle_leaf_ze1";
+static const char* TAG = "vehicle_leaf_aze0";
 
 // OBD2 Request management
 static can_request_t* req_listP[NUM_UDS_REQ_ITEMS];
@@ -153,14 +153,23 @@ static float hv_batt_t[4] = {0.0, 0.0, 0.0, 0.0};
 //
 // Vehicle manager functions
 //
-static void _leaf_ze1_init(int if_type)
+static void _leaf_aze0_init(int if_type)
 {
-	// We don't need to filter the OBD CAN bus because the car's gateway does that for us
-	can_en_rsp_filter(false);
+	// Filter out the raw CAR CAN data
+	can_en_rsp_filter(true);
+	
+	// Reduce the default timeout when using the HW CAN interface because the ESP32-S3
+	// seems to lose some responses even with filtering turned on due to the large
+	// amount of incoming traffic.  We pick a value that's short enough to still allow
+	// a responsive display but slower than time time it typically takes the car to respond
+	// to a request.
+	if (if_type == CAN_MANAGER_IF_TWAI) {
+		can_reset_timeout(100);
+	}
 }
 
 
-static void _leaf_ze1_eval()
+static void _leaf_aze0_eval()
 {
 	// Handle any responses or timeout
 	if (req_in_process) {
@@ -200,7 +209,7 @@ static void _leaf_ze1_eval()
 }
 
 
-static void _leaf_ze1_set_req_mask(uint32_t mask)
+static void _leaf_aze0_set_req_mask(uint32_t mask)
 {
 	bool required_req[NUM_UDS_REQ_ITEMS];
 	int n = 0;
@@ -229,7 +238,7 @@ static void _leaf_ze1_set_req_mask(uint32_t mask)
 }
 
 
-static void _leaf_ze1_rx_data(uint32_t id, int len, uint8_t* data)
+static void _leaf_aze0_rx_data(uint32_t id, int len, uint8_t* data)
 {
 	float f;
 	int n;
@@ -287,23 +296,16 @@ static void _leaf_ze1_rx_data(uint32_t id, int len, uint8_t* data)
 		case UDS_SPEED:
 			if (len == 5) {
 				u16 = (data[3] << 8) | data[4];
-				f = (float) u16 / 10.0;
+				f = ((float) u16 / 10.0) + 0.4;  // Add a small compensating factor to match the car's meter display
 				vm_update_data_item(DB_ITEM_SPEED, f);
 			}
 			break;
 		
 		case UDS_HV_BATT_INFO:
-			if (len == 53) {
-/*
-				i32 = (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
-				f = (float) i32 / 1024.0;
-				ESP_LOGI(TAG, "Batt Current 1 = %1.2f", f);
-				vm_update_data_item(DB_ITEM_HV_BATT_I, f);
-*/
+			if (len == 41) {
 				// Battery current 2 seems to be a more accurate average value
 				i32 = (data[8] << 24) | (data[9] << 16) | (data[10] << 8) | data[11];
 				f = (float) i32 / 1024.0;
-//				ESP_LOGI(TAG, "Batt Current 2 = %1.2f", f);
 				vm_update_data_item(DB_ITEM_HV_BATT_I, f);
 				
 				u16 = (data[20] << 8) | data[21];
@@ -313,18 +315,13 @@ static void _leaf_ze1_rx_data(uint32_t id, int len, uint8_t* data)
 			break;
 		
 		case UDS_HV_BATT_TEMP:
-			if (len == 31) {
+			if (len == 16) {
 				i16 = (data[2] << 8) | data[3];
-				hv_batt_t[0] = ((_leaf_ze1_hv_batt_raw_to_f(i16) - 32.0) * 5.0) / 9.0;
+				hv_batt_t[0] = ((_leaf_aze0_hv_batt_raw_to_f(i16) - 32.0) * 5.0) / 9.0;
 				i16 = (data[5] << 8) | data[6];
-				hv_batt_t[1] = ((_leaf_ze1_hv_batt_raw_to_f(i16) - 32.0) * 5.0) / 9.0;
-/*
-				// Not used in ZE1
-				i16 = (data[8] << 8) | data[9];
-				hv_batt_t[2] = ((_leaf_ze1_hv_batt_raw_to_f(i16) - 32.0) * 5.0) / 9.0;
-*/
+				hv_batt_t[1] = ((_leaf_aze0_hv_batt_raw_to_f(i16) - 32.0) * 5.0) / 9.0;
 				i16 = (data[11] << 8) | data[12];
-				hv_batt_t[3] = ((_leaf_ze1_hv_batt_raw_to_f(i16) - 32.0) * 5.0) / 9.0;
+				hv_batt_t[3] = ((_leaf_aze0_hv_batt_raw_to_f(i16) - 32.0) * 5.0) / 9.0;
 				
 				// Find min
 				if (hv_batt_t[1] < hv_batt_t[0]) {
@@ -365,7 +362,7 @@ static void _leaf_ze1_rx_data(uint32_t id, int len, uint8_t* data)
 				i16 = (data[3] << 8) | data[4];
 				f = (float) i16 / 64.0;
 				
-				// For the ZE1 the torque value is the actual torque going to the motor
+				// For the AZE0 the torque value is the actual torque going to the motor
 				// which means going in reverse is the same as applying regen while going forward
 				// so we use knowledge of the shift position to negate the torque for reverse
 				// so it still shows up as a positive number (a request to move the car as opposed
@@ -390,7 +387,7 @@ static void _leaf_ze1_rx_data(uint32_t id, int len, uint8_t* data)
 }
 
 
-static void _leaf_ze1_error(int errno)
+static void _leaf_aze0_error(int errno)
 {
 	// We only handle (and expect) timeouts
 	if (errno == CAN_ERRNO_TIMEOUT) {
@@ -403,7 +400,7 @@ static void _leaf_ze1_error(int errno)
 //
 // Internal functions
 //
-static float _leaf_ze1_hv_batt_raw_to_f(int16_t raw)
+static float _leaf_aze0_hv_batt_raw_to_f(int16_t raw)
 {
 	if (raw == 1021) {
 		return 1.0;

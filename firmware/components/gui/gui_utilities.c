@@ -21,6 +21,8 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "gui_utilities.h"
+#include "gui_task.h"
+#include <math.h>
 
 
 
@@ -92,8 +94,6 @@ static gui_utility_kbd_update_textfield kp_fcn_parent_val_cb;
 //
 // Forward declarations for internal functions
 //
-uint16_t _gui_util_setup_meter_ticks(float major_tick_value, float major_tick_inc, int min_ticks, int max_ticks, float min_val, float max_val);
-float _gui_util_div_frac(float dividend, float divisor);
 void _gui_util_display_keypad(lv_obj_t* parent, char* title, char* val, int val_len);
 void _gui_util_keypad_cb(lv_event_t* e);
 
@@ -120,21 +120,9 @@ float gui_util_kph_to_mph(float kph)
 }
 
 
-uint16_t gui_utility_setup_large_270_meter_ticks(float min, float max)
+uint16_t gui_utility_setup_meter_ticks(float min, float max, float major_tick_inc)
 {
-	return _gui_util_setup_meter_ticks(20.0, 10.0, 11, 25, min, max);
-}
-
-
-uint16_t gui_utility_setup_small_180_meter_ticks(float min, float max)
-{
-	return _gui_util_setup_meter_ticks(1.0, 1.0, 5, 9, min, max);
-}
-
-
-uint16_t gui_utility_setup_small_270_meter_ticks(float min, float max)
-{
-	return _gui_util_setup_meter_ticks(1.0, 1.0, 11, 15, min, max);
+	return (uint16_t) ((round((max - min) / major_tick_inc)) * 2) + 1;
 }
 
 
@@ -238,56 +226,6 @@ void gui_dump_mem_info()
 //
 // Internal functions
 //
-
-//
-// major_tick_value - Starting count between major (alternating) tick values
-// major_tick_inc - Increment to add to major_tick_value if it results in too many ticks (more than max_ticks)
-// min_ticks, max_ticks - Minimum and maximum number of ticks to generate (major + minor ticks)
-// min_val, max_val - Range of meter
-uint16_t _gui_util_setup_meter_ticks(float major_tick_value, float major_tick_inc, int min_ticks, int max_ticks, float min_val, float max_val)
-{
-	bool done = false;
-	float range_delta = max_val - min_val;
-	int calc_ticks;
-	
-	// Find the first major tick increment that fits (we draw labeled major tick marks and an intermediary,
-	// unlabled minor tick)
-	while (!done) {
-		// Calculate the tick count for the current major_tick_val
-		calc_ticks = 2 * (int)(range_delta / major_tick_value) + 1;
-		
-		if ((_gui_util_div_frac(range_delta, major_tick_value) != 0) && (calc_ticks > min_ticks)) {
-			// This major tick value does not fit evenly into the range so try the next major_tick_val
-			major_tick_value += major_tick_inc;
-			continue;
-		}
-		
-		if (calc_ticks > max_ticks) {
-			// Too many ticks so try the next major_tick_val
-			major_tick_value += major_tick_inc;
-			continue;
-		}
-		
-		// We found something reasonable
-		done = true;
-	}
-	
-	return (uint16_t) calc_ticks;
-}
-
-
-float _gui_util_div_frac(float dividend, float divisor)
-{
-	float f;
-	int n;
-	
-	f = dividend / divisor;
-	n = dividend / divisor;
-	
-	return (f - (float) n);
-}
-
-
 void _gui_util_display_keypad(lv_obj_t* parent, char* title, char* val, int val_len)
 {
 	uint16_t parent_w = lv_obj_get_width(parent);
@@ -311,6 +249,7 @@ void _gui_util_display_keypad(lv_obj_t* parent, char* title, char* val, int val_
 	lv_obj_set_style_pad_left(kp_popup, 0, LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_right(kp_popup, 0, LV_STATE_DEFAULT);
 	lv_obj_set_scrollbar_mode(kp_popup, LV_SCROLLBAR_MODE_OFF);
+	lv_obj_set_style_bg_color(kp_popup, GUI_OBJ_BG_COLOR, LV_PART_MAIN);
 	
 	// Create the keypad title label
 	kp_title_lbl = lv_label_create(kp_popup);

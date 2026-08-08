@@ -59,7 +59,9 @@
 
 // Speedometer range based on units
 #define METER_RANGE_MPH       100
+#define METER_RANGE_MPH_TICK  10
 #define METER_RANGE_KPH       160
+#define METER_RANGE_KPH_TICK  20
 
 // Timer state machine states
 #define TIMER_STATE_IDLE      0
@@ -116,7 +118,8 @@ static lv_timer_t* run_eval_timer = NULL;
 static bool has_speed;
 
 // Meter upper range
-static int16_t meter_range;
+static float meter_range;
+static float meter_range_ticks;
 
 // Speed test goal in selected units
 static int32_t speed_goal;
@@ -178,6 +181,7 @@ void gui_tile_timed_init(lv_obj_t* parent_tileview, int* tile_index)
 		
 		// Then set units-specific items before we create meters
 		meter_range = (units_metric) ? METER_RANGE_KPH : METER_RANGE_MPH;
+		meter_range_ticks = (units_metric) ? METER_RANGE_KPH_TICK : METER_RANGE_MPH_TICK;
 		speed_goal = (units_metric) ? TEST_END_KPH : TEST_END_MPH;
 		
 		// Create display objects
@@ -254,12 +258,13 @@ static bool _gui_tile_timed_setup_vehicle()
 
 static void _gui_tile_timed_setup_speed_meter()
 {
-	uint16_t meter_ticks = gui_utility_setup_large_270_meter_ticks(0, meter_range);
+	uint16_t meter_ticks = gui_utility_setup_meter_ticks(0, meter_range, meter_range_ticks);
 	
 	// Meter background
     meter_speed = lv_meter_create(tile);
     lv_obj_center(meter_speed);
     lv_obj_set_size(meter_speed, tile_w, tile_h);
+    lv_obj_set_style_bg_color(meter_speed, GUI_OBJ_BG_COLOR, LV_PART_MAIN);
 
     // Remove the circle from the middle
     lv_obj_remove_style(meter_speed, NULL, LV_PART_INDICATOR);

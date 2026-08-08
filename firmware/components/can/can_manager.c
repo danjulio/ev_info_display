@@ -53,8 +53,6 @@ static const can_if_driver_t* interface_listP[] = {
 //
 // Global variables
 //
-static const char* TAG = "can_manager";
-
 static can_if_driver_t* driverP = NULL;
 static uint32_t cur_req_id = 0;
 static uint32_t cur_rsp_id = 0;
@@ -117,6 +115,14 @@ bool can_init(int if_type, int req_timeout, bool can_is_500k)
 	}
 	
 	return ret;
+}
+
+
+void can_reset_timeout(int req_timeout)
+{
+	if (driverP != NULL) {
+		driverP->fcn_reset_timeout(req_timeout);
+	}
 }
 
 

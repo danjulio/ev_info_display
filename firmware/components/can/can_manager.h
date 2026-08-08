@@ -51,6 +51,7 @@
 // Interface driver functions
 //
 typedef bool (*can_if_init)(int if_type, int req_timeout, bool can_is_500k);
+typedef void (*can_if_reset_timeout)(int req_timeout);
 typedef bool (*can_if_connected)();
 typedef bool (*can_if_tx_packet)(uint32_t req_id, uint32_t rsp_id, int len, uint8_t* data);
 typedef bool (*can_if_tx_fc_packet)(uint32_t req_id, int len, uint8_t* data);  // May be called from within an ISR
@@ -65,6 +66,7 @@ typedef void (*can_if_response_complete)();
 typedef struct {
 	char* name;
 	can_if_init fcn_init;
+	can_if_reset_timeout fcn_reset_timeout;
 	can_if_connected fcn_is_connected;
 	can_if_tx_packet fcn_tx_packet;
 	can_if_tx_fc_packet fcn_tx_fc_packet;
@@ -83,6 +85,7 @@ const char* can_get_interface_name(int n);
 
 // For vehicle implementations
 bool can_init(int if_type, int req_timeout, bool can_is_500k);
+void can_reset_timeout(int req_timeout);
 bool can_connected();
 bool can_tx_packet(uint32_t req_id, uint32_t rsp_id, int len, uint8_t* data);
 void can_en_rsp_filter(bool en);

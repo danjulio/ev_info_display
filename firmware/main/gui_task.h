@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "lvgl.h"
 
 
 //
@@ -45,6 +46,9 @@
 #define GUI_SCREEN_BLE             3
 
 #define GUI_NUM_MAIN_SCREEN_PAGES  4
+
+// Displayed object background color (overrides theme dark default)
+#define GUI_OBJ_BG_COLOR           lv_color_hex(0x0A0B0D)
 
 
 // Notifications

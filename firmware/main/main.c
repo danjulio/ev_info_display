@@ -62,6 +62,6 @@ void app_main(void)
 	// Start tasks
     //  Core 0 : PRO
     //  Core 1 : APP
-    xTaskCreatePinnedToCore(&can_task,   "can_task",   4096, NULL, 2, &task_handle_can,   0);
-    xTaskCreatePinnedToCore(&gui_task,   "gui_task",   4096, NULL, 2, &task_handle_gui,   1);
+    xTaskCreatePinnedToCore(&can_task,   "can_task",   5120, NULL, 2, &task_handle_can,   0);
+    xTaskCreatePinnedToCore(&gui_task,   "gui_task",   5120, NULL, 2, &task_handle_gui,   1);
 }

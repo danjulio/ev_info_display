@@ -456,13 +456,15 @@ static const char* _ble_get_ble_device_ble_name(int index)
 
 static const char* _ble_get_service_uuid(int index)
 {
-	static char uuid_str[BLE_UUID_STR_LEN] = "0x";
+	static char uuid_str[BLE_UUID_STR_LEN+3] = "0x";
 	
 	if (index > (NUM_KNOWN_BLE_DEVICES-1)) {
-		strncpy(&uuid_str[2], configP->service_uuid, BLE_UUID_STR_LEN-2);
+		strncpy(&uuid_str[2], configP->service_uuid, BLE_UUID_STR_LEN+1);
+		uuid_str[BLE_UUID_STR_LEN+2] = 0;
 		return (const char*) uuid_str;
 	} else if (index >= 0) {
-		strncpy(&uuid_str[2], known_ble_devices[index].service_uuid, BLE_UUID_STR_LEN-2);
+		strncpy(&uuid_str[2], known_ble_devices[index].service_uuid, BLE_UUID_STR_LEN+1);
+		uuid_str[BLE_UUID_STR_LEN+2] = 0;
 		return (const char*) uuid_str;
 	}
 	
@@ -472,13 +474,15 @@ static const char* _ble_get_service_uuid(int index)
 
 static const char* _ble_get_tx_char_uuid(int index)
 {
-	static char uuid_str[BLE_UUID_STR_LEN] = "0x";
+	static char uuid_str[BLE_UUID_STR_LEN+3] = "0x";
 	
 	if (index > (NUM_KNOWN_BLE_DEVICES-1)) {
-		strncpy(&uuid_str[2], configP->tx_char_uuid, BLE_UUID_STR_LEN-2);
+		strncpy(&uuid_str[2], configP->tx_char_uuid, BLE_UUID_STR_LEN+1);
+		uuid_str[BLE_UUID_STR_LEN+2] = 0;
 		return (const char*) uuid_str;
 	} else if (index >= 0) {
-		strncpy(&uuid_str[2], known_ble_devices[index].tx_char_uuid, BLE_UUID_STR_LEN-2);
+		strncpy(&uuid_str[2], known_ble_devices[index].tx_char_uuid, BLE_UUID_STR_LEN+1);
+		uuid_str[BLE_UUID_STR_LEN+2] = 0;
 		return (const char*) uuid_str;
 	}
 	
@@ -488,13 +492,15 @@ static const char* _ble_get_tx_char_uuid(int index)
 
 static const char* _ble_get_rx_char_uuid(int index)
 {
-	static char uuid_str[BLE_UUID_STR_LEN] = "0x";
+	static char uuid_str[BLE_UUID_STR_LEN+3] = "0x";
 	
 	if (index > (NUM_KNOWN_BLE_DEVICES-1)) {
-		strncpy(&uuid_str[2], configP->rx_char_uuid, BLE_UUID_STR_LEN-2);
+		strncpy(&uuid_str[2], configP->rx_char_uuid, BLE_UUID_STR_LEN+1);
+		uuid_str[BLE_UUID_STR_LEN+2] = 0;
 		return (const char*) uuid_str;
 	} else if (index >= 0) {
-		strncpy(&uuid_str[2], known_ble_devices[index].rx_char_uuid, BLE_UUID_STR_LEN-2);
+		strncpy(&uuid_str[2], known_ble_devices[index].rx_char_uuid, BLE_UUID_STR_LEN+1);
+		uuid_str[BLE_UUID_STR_LEN+2] = 0;
 		return (const char*) uuid_str;
 	}
 	

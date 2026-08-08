@@ -181,8 +181,10 @@ static void _gui_tile_settings_set_active(bool en)
 			lv_timer_resume(connection_status_eval_timer);
 			
 			// Vehicle drop-down
-			strncpy(cur_vehicle_name, configP->vehicle_name, PS_VEHICLE_NAME_MAX_LEN);
-			strncpy(new_vehicle_name, configP->vehicle_name, PS_VEHICLE_NAME_MAX_LEN);
+			strncpy(cur_vehicle_name, configP->vehicle_name, PS_VEHICLE_NAME_MAX_LEN+1);
+			cur_vehicle_name[PS_VEHICLE_NAME_MAX_LEN] = 0;
+			strncpy(new_vehicle_name, configP->vehicle_name, PS_VEHICLE_NAME_MAX_LEN+1);
+			new_vehicle_name[PS_VEHICLE_NAME_MAX_LEN] = 0;
 			for (int i=0; i<vm_get_num_vehicles(); i++) {
 				if (strcmp(vm_get_vehicle_name(i), cur_vehicle_name) == 0) {
 					lv_dropdown_set_selected(vehicle_dd, (uint16_t) i);
@@ -479,7 +481,8 @@ static void _gui_tile_settings_btn_cb(lv_event_t* e)
 		if (obj == save_btn) {
 			// Look for configuration changes 
 			if (strcmp(cur_vehicle_name, new_vehicle_name) != 0) {
-				strncpy(configP->vehicle_name, new_vehicle_name, PS_VEHICLE_NAME_MAX_LEN);
+				strncpy(configP->vehicle_name, new_vehicle_name, PS_VEHICLE_NAME_MAX_LEN+1);
+				configP->vehicle_name[PS_VEHICLE_NAME_MAX_LEN] = 0;
 				changed = true;
 			}
 			

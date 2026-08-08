@@ -34,6 +34,7 @@
 
 // Functions for CAN manager
 static bool _can_driver_twai_init(int if_type, int req_timeout, bool can_is_500k);
+static void _can_driver_twai_reset_timeout(int req_timeout);
 static bool _can_driver_twai_connected();
 static bool _can_driver_twai_tx_packet(uint32_t req_id, uint32_t rsp_id, int len, uint8_t* data);
 static bool _can_driver_twai_tx_fc_packet(uint32_t req_id, int len, uint8_t* data);
@@ -54,6 +55,7 @@ const can_if_driver_t can_driver_twai =
 {
 	"CAN TWAI Driver",
 	_can_driver_twai_init,
+	_can_driver_twai_reset_timeout,
 	_can_driver_twai_connected,
 	_can_driver_twai_tx_packet,
 	_can_driver_twai_tx_fc_packet,
@@ -153,6 +155,12 @@ static bool _can_driver_twai_init(int if_type, int req_timeout, bool can_is_500k
 }
 
 
+static void _can_driver_twai_reset_timeout(int req_timeout)
+{
+	timeout_msec = req_timeout;
+}
+
+
 static bool _can_driver_twai_connected()
 {
 	return connected;
@@ -178,6 +186,7 @@ static bool _can_driver_twai_tx_packet(uint32_t req_id, uint32_t rsp_id, int len
 		
 		if ((ret = twai_node_config_mask_filter(node_hdl, 0, &mfilter_cfg)) != ESP_OK) {
 			ESP_LOGE(TAG, "Failed to set mask 0x%x - %d", rsp_id, ret);
+			twai_node_enable(node_hdl);
 			return false;
 		}
 		
@@ -245,7 +254,7 @@ static void _can_driver_twai_en_rsp_filter(bool en)
 		}
 		twai_node_enable(node_hdl);
 	}
-	// No else necessary as filter is configured in tx_packet
+	// No else clause is necessary as filter is configured in tx_packet
 }
 
 

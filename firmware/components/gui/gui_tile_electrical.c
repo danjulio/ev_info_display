@@ -64,8 +64,10 @@ static bool has_lv_t;
 // Vehicle specific ranges
 static float hv_i_min;
 static float hv_i_max;
+static float hv_i_major_tick;
 static float lv_v_min;
 static float lv_v_max;
+static float lv_v_major_tick;
 
 // State
 static bool units_metric;
@@ -253,11 +255,11 @@ static bool _gui_tile_electrical_setup_vehicle()
 	has_lv_t     = (capability_mask & DB_ITEM_LV_BATT_T) != 0;
 	
 	if (has_hv_i) {
-		vm_get_range(VM_RANGE_HV_BATTI, &hv_i_min, &hv_i_max);
+		vm_get_range(VM_RANGE_HV_BATTI, &hv_i_min, &hv_i_max, &hv_i_major_tick);
 	}
 	
 	if (has_lv_v) {
-		vm_get_range(VM_RANGE_LV_BATTV, &lv_v_min, &lv_v_max);
+		vm_get_range(VM_RANGE_LV_BATTV, &lv_v_min, &lv_v_max, &lv_v_major_tick);
 	}
 	
 	return (has_hv_i || has_lv_v);
@@ -268,13 +270,14 @@ static void _gui_tile_electrical_setup_hv_i_meter()
 {
 	int32_t meter_min = (int32_t) hv_i_min;
 	int32_t meter_max = (int32_t) hv_i_max;
-	uint16_t meter_ticks = gui_utility_setup_large_270_meter_ticks(hv_i_min, hv_i_max);
+	uint16_t meter_ticks = gui_utility_setup_meter_ticks(hv_i_min, hv_i_max, hv_i_major_tick);
 	lv_meter_indicator_t * indic;
 	
 	// Meter background
     meter_hv_i = lv_meter_create(tile);
     lv_obj_center(meter_hv_i);
     lv_obj_set_size(meter_hv_i, tile_w, tile_h);
+    lv_obj_set_style_bg_color(meter_hv_i, GUI_OBJ_BG_COLOR, LV_PART_MAIN);
 
     // Remove the circle from the middle
     lv_obj_remove_style(meter_hv_i, NULL, LV_PART_INDICATOR);
@@ -365,13 +368,14 @@ static void _gui_tile_electrical_setup_lv_v_meter()
 	uint16_t h = 6*tile_h/16;
 	int32_t meter_min = (int32_t) lv_v_min;
 	int32_t meter_max = (int32_t) lv_v_max;
-	uint16_t meter_ticks = gui_utility_setup_small_180_meter_ticks(lv_v_min, lv_v_max);
+	uint16_t meter_ticks = gui_utility_setup_meter_ticks(lv_v_min, lv_v_max, lv_v_major_tick);
 	
 	// Meter
 	meter_lv_v = lv_meter_create(tile);
     lv_obj_align(meter_lv_v, LV_ALIGN_BOTTOM_MID, 0, -20);
     lv_obj_set_size(meter_lv_v, w, h);
     lv_obj_remove_style(meter_lv_v, NULL, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(meter_lv_v, GUI_OBJ_BG_COLOR, LV_PART_MAIN);
     
     // Meter scale (V)
     lv_meter_scale_t* scale = lv_meter_add_scale(meter_lv_v);

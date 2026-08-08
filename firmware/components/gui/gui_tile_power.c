@@ -54,8 +54,10 @@ static bool has_aux;
 // Vehicle specific ranges
 static float power_min;
 static float power_max;
+static float power_major_tick;
 static float aux_min;
 static float aux_max;
+static float aux_major_tick;
 
 // State
 static uint16_t tile_w;
@@ -160,11 +162,11 @@ static bool _gui_tile_power_setup_vehicle()
 	has_aux = (capability_mask & DB_ITEM_AUX_KW) != 0;
 	
 	if (has_power) {
-		vm_get_range(VM_RANGE_POWER, &power_min, &power_max);
+		vm_get_range(VM_RANGE_POWER, &power_min, &power_max, &power_major_tick);
 	}
 	
 	if (has_aux) {
-		vm_get_range(VM_RANGE_AUX, &aux_min, &aux_max);
+		vm_get_range(VM_RANGE_AUX, &aux_min, &aux_max, &aux_major_tick);
 	}
 	
 	return (has_power || has_aux);
@@ -176,13 +178,14 @@ static void _gui_tile_power_setup_power_meter()
 	int32_t meter_min = (int32_t) power_min;
 	int32_t meter_max = (int32_t) power_max;
 	int32_t meter_pos_range;
-	uint16_t meter_ticks = gui_utility_setup_large_270_meter_ticks(power_min, power_max);
+	uint16_t meter_ticks = gui_utility_setup_meter_ticks(power_min, power_max, power_major_tick);
 	lv_meter_indicator_t * indic;
 	
 	// Meter background
     meter_power = lv_meter_create(tile);
     lv_obj_center(meter_power);
     lv_obj_set_size(meter_power, tile_w, tile_h);
+    lv_obj_set_style_bg_color(meter_power, GUI_OBJ_BG_COLOR, LV_PART_MAIN);
 
     // Remove the circle from the middle
     lv_obj_remove_style(meter_power, NULL, LV_PART_INDICATOR);
@@ -271,13 +274,14 @@ static void _gui_tile_power_setup_aux_meter()
 	uint16_t h = 6*tile_h/16;
 	int32_t meter_min = (int32_t) aux_min;
 	int32_t meter_max = (int32_t) aux_max;
-	uint16_t meter_ticks = gui_utility_setup_small_270_meter_ticks(aux_min, aux_max);
+	uint16_t meter_ticks = gui_utility_setup_meter_ticks(aux_min, aux_max, aux_major_tick);
 	
 	// Meter
 	meter_aux = lv_meter_create(tile);
     lv_obj_align(meter_aux, LV_ALIGN_BOTTOM_MID, 0, -20);
     lv_obj_set_size(meter_aux, w, h);
     lv_obj_remove_style(meter_aux, NULL, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(meter_aux, GUI_OBJ_BG_COLOR, LV_PART_MAIN);
     
     // Meter scale (kW)
     lv_meter_scale_t* scale = lv_meter_add_scale(meter_aux);

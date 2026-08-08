@@ -76,6 +76,7 @@ static uint16_t canvas_h;
 static bool graph_hidden;
 static float graph_v_min;
 static float graph_v_max;
+static float graph_v_major_tick;
 static lv_coord_t graph_x_offset;
 static lv_coord_t graph_x_inc;
 static float cell_v[DB_MAX_CELL_V_VALS];
@@ -126,7 +127,7 @@ void gui_tile_cells_init(lv_obj_t* parent_tileview, int* tile_index)
 		num_cells = vm_get_indexed_item_count(DB_ITEM_HV_CELL_V);
 		graph_x_inc = (lv_coord_t) (canvas_w / num_cells);
 		graph_x_offset = (lv_coord_t) (canvas_w - (graph_x_inc * num_cells)) / 2;
-		vm_get_range(VM_RANGE_HV_CELLV, &graph_v_min, &graph_v_max);
+		vm_get_range(VM_RANGE_HV_CELLV, &graph_v_min, &graph_v_max, &graph_v_major_tick);
 		
 		// Setup the widgets
 		_gui_tile_cells_setup_cell_canvas();

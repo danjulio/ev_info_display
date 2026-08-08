@@ -31,6 +31,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "vehicle_manager.h"
+#include "vehicle_leaf_aze0.h"
 #include "vehicle_leaf_ze1.h"
 #include "vehicle_vw_meb.h"
 #include <string.h>
@@ -40,12 +41,17 @@
 //
 // List of all implemented vehicle types
 //
-#define NUM_VEHICLES 3
+#define NUM_VEHICLES 8
 static const vehicle_config_t* vehicle_listP[NUM_VEHICLES] =
 {
+	&vehicle_leaf_aze0,
 	&vehicle_leaf_ze1,
-	&vehicle_vw_meb_awd,
-	&vehicle_vw_meb_rwd
+	&vehicle_vw_meb84_rwd,
+	&vehicle_vw_meb96_awd,
+	&vehicle_vw_meb96_rwd,
+	&vehicle_vw_meb104_awd,
+	&vehicle_vw_meb104_rwd,
+	&vehicle_vw_meb108_rwd,
 };
 
 
@@ -82,8 +88,8 @@ bool vm_init(const char* vehicle_name, int if_type)
 			// First, initialize the interface
 			if (can_init(if_type, cur_vehicleP->req_timeout_msec, cur_vehicleP->can_is_500k)) {
 				// Then initialize the vehicle
-				cur_vehicleP->fcn_init();
-				
+				cur_vehicleP->fcn_init(if_type);
+				ESP_LOGI(TAG, "Vehicle type: %s", cur_vehicleP->name);
 				return true;
 			} else {
 				return false;
@@ -255,7 +261,7 @@ void vm_set_request_item_mask(uint32_t mask)
 }
 
 
-bool vm_get_range(int index, float* min, float* max)
+bool vm_get_range(int index, float* min, float* max, float* major_tick_val)
 {
 	bool success = true;
 	
@@ -264,26 +270,32 @@ bool vm_get_range(int index, float* min, float* max)
 			case VM_RANGE_POWER:
 				*min = cur_vehicleP->power_kw_range.min;
 				*max = cur_vehicleP->power_kw_range.max;
+				*major_tick_val = cur_vehicleP->power_kw_range.major_tick_val;
 				break;
 			case VM_RANGE_AUX:
 				*min = cur_vehicleP->aux_kw_range.min;
 				*max = cur_vehicleP->aux_kw_range.max;
+				*major_tick_val = cur_vehicleP->aux_kw_range.major_tick_val;
 				break;
 			case VM_RANGE_TORQUE:
 				*min = cur_vehicleP->torque_nm_range.min;
 				*max = cur_vehicleP->torque_nm_range.max;
+				*major_tick_val = cur_vehicleP->torque_nm_range.major_tick_val;
 				break;
 			case VM_RANGE_HV_BATTI:
 				*min = cur_vehicleP->hv_batt_i_range.min;
 				*max = cur_vehicleP->hv_batt_i_range.max;
+				*major_tick_val = cur_vehicleP->hv_batt_i_range.major_tick_val;
 				break;
 			case VM_RANGE_LV_BATTV:
 				*min = cur_vehicleP->lv_batt_v_range.min;
 				*max = cur_vehicleP->lv_batt_v_range.max;
+				*major_tick_val = cur_vehicleP->lv_batt_v_range.major_tick_val;
 				break;
 			case VM_RANGE_HV_CELLV:
 				*min = cur_vehicleP->hv_batt_cell_range.min;
 				*max = cur_vehicleP->hv_batt_cell_range.max;
+				*major_tick_val = cur_vehicleP->hv_batt_cell_range.major_tick_val;
 				break;
 			default:
 				success = false;

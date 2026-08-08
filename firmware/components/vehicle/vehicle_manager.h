@@ -53,7 +53,7 @@
 //
 // Vehicle module specific evaluation functions
 //
-typedef void (*vehicle_init)();
+typedef void (*vehicle_init)(int if_type);
 typedef void (*vehicle_eval)();
 typedef void (*vehicle_set_req_mask)(uint32_t mask);
 typedef void (*vehicle_rx_data)(uint32_t id, int len, uint8_t* data);
@@ -79,6 +79,7 @@ typedef struct {
 typedef struct {
 	float min;
 	float max;
+	float major_tick_val;
 } item_range_t;
 
 typedef struct {
@@ -130,6 +131,6 @@ int vm_get_indexed_item_count(uint32_t mask);
 // For GUI use
 uint32_t vm_get_supported_item_mask();
 void vm_set_request_item_mask(uint32_t mask);
-bool vm_get_range(int index, float* min, float* max);
+bool vm_get_range(int index, float* min, float* max, float* major_tick_val);
 
 #endif /* VEHICLE_MANAGER_H */

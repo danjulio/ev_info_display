@@ -1,7 +1,7 @@
 /*
- * Volkswagen MEB platform vehicle implementation
+ * Nissan Leaf AZE0 (2013-2017) platform vehicle implementation
  *
- * Copyright 2025-2026 Dan Julio
+ * Copyright 2026 Dan Julio
  *
  * This is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,8 +17,8 @@
  * along with this software.  If not, see <https://www.gnu.org/licenses/>.
  *
  */
-#ifndef VEHICLE_VW_MEB_H
-#define VEHICLE_VW_MEB_H
+#ifndef VEHICLE_LEAF_AZE0_H
+#define VEHICLE_LEAF_AZE0_H
 
 #include "vehicle_manager.h"
 
@@ -26,12 +26,6 @@
 //
 // Externs for vehicles defined in this module
 //
-extern const vehicle_config_t vehicle_vw_meb84_rwd;
-extern const vehicle_config_t vehicle_vw_meb96_rwd;
-extern const vehicle_config_t vehicle_vw_meb96_awd;
-extern const vehicle_config_t vehicle_vw_meb104_rwd;
-extern const vehicle_config_t vehicle_vw_meb104_awd;
-extern const vehicle_config_t vehicle_vw_meb108_rwd;
+extern const vehicle_config_t vehicle_leaf_aze0;
 
-
-#endif /* VEHICLE_VW_MEB_H */
+#endif /* VEHICLE_LEAF_AXE0_H */

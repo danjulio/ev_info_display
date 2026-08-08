@@ -136,10 +136,12 @@ void gui_screen_wifi_set_active(bool is_active)
 {
 	if (is_active) {
 		// Set our values based on persistent storage and display them
-		strncpy(cur_ssid, configP->sta_ssid, PS_SSID_MAX_LEN);
+		strncpy(cur_ssid, configP->sta_ssid, PS_SSID_MAX_LEN+1);
 		lv_label_set_text_static(ssid, cur_ssid);
+		cur_ssid[PS_SSID_MAX_LEN] = 0;
 		
-		strncpy(cur_pw, configP->sta_pw, PS_PW_MAX_LEN);
+		strncpy(cur_pw, configP->sta_pw, PS_PW_MAX_LEN+1);
+		cur_pw[PS_PW_MAX_LEN] = 0;
 		lv_label_set_text_static(pw, cur_pw);
 		
 		sprintf(cur_port, "%u", configP->remote_port);
