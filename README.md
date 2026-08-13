@@ -1,5 +1,5 @@
 ## EV Info Display
-Firmware for an EV performance information gauge using the [Waveshare ESP32-S3 2.8" touchscreen](https://www.waveshare.com/product/arduino/displays/lcd-rgb/esp32-s3-touch-lcd-2.8c.htm) development board.  It connects via the vehicle's OBD2 port.
+Firmware for an EV performance information gauge using the [Waveshare ESP32-S3 2.8" touchscreen](https://www.waveshare.com/esp32-s3-touch-lcd-2.8c.htm?sku=29086) development board.  It connects via the vehicle's OBD2 port.
 
 ![EV Info Display](pictures/ev_info_display.jpg)
 
